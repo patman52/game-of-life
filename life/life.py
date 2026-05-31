@@ -4,7 +4,7 @@ from typing import Tuple
 import pygame
 
 from . import settings
-from .grid import Grid, MAX_SIZE
+from .grid import Grid
 
 MAX_SCREEN_RATIO = 0.9
 PANEL_WIDTH = 200
@@ -46,15 +46,19 @@ class Life:
     def _calculate_cell_size(self) -> None:
         grid_width, grid_height = self.grid.size
         grid_area_width = self._grid_area_width()
-        cell_width = grid_area_width // grid_width
-        cell_height = self.screen.get_height() // (grid_height + 1)
-        self.cell_size = min(cell_width, cell_height)
-        self.padding_x = (grid_area_width - (self.cell_size * grid_width)) // 2
-        self.padding_y = cell_height / 2
+        grid_area_height = self.screen.get_height()
+        # Divide by (n + 1) so the leftover space is always >= one full cell,
+        # i.e. >= half a cell of padding on each side.
+        self.cell_size = min(grid_area_width // (grid_width + 1),
+                             grid_area_height // (grid_height + 1))
+        # Center the grid within the available area.
+        self.padding_x = (grid_area_width - self.cell_size * grid_width) // 2
+        self.padding_y = (grid_area_height - self.cell_size * grid_height) // 2
 
     def draw_grid(self) -> None:
-        for y, row in enumerate(self.grid.cells):
-            for x, cell in enumerate(row):
+        for y in range(self.grid.size[1]):
+            for x in range(self.grid.size[0]):
+                cell = self.grid.get_cell(x, y)
                 color = (0, 0, 0) if cell.alive else (200, 200, 200)
                 rect = pygame.Rect(x * self.cell_size + self.padding_x, y * self.cell_size + self.padding_y, 
                                    self.cell_size, self.cell_size)
@@ -133,11 +137,11 @@ class Life:
                     if self._w_minus_rect.collidepoint(mouse_pos):
                         self._pending_width = max(1, self._pending_width - 1)
                     elif self._w_plus_rect.collidepoint(mouse_pos):
-                        self._pending_width = min(MAX_SIZE, self._pending_width + 1)
+                        self._pending_width = min(settings.MAX_GRID_SIZE, self._pending_width + 1)
                     elif self._h_minus_rect.collidepoint(mouse_pos):
                         self._pending_height = max(1, self._pending_height - 1)
                     elif self._h_plus_rect.collidepoint(mouse_pos):
-                        self._pending_height = min(MAX_SIZE, self._pending_height + 1)
+                        self._pending_height = min(settings.MAX_GRID_SIZE, self._pending_height + 1)
                     elif self._resize_rect.collidepoint(mouse_pos):
                         self.grid.resize(self._pending_width, self._pending_height)
                         self._calculate_cell_size()
@@ -156,6 +160,9 @@ class Life:
             self.draw_panel()
             pygame.display.flip()
             if self.playing:
+                if self.grid.all_cells_dead:
+                    self.playing = False
+                    continue
                 current_time = time.time()
                 if current_time - self.last_generation_time >= self.seconds_per_generation:
                     self.grid.iterate_generation()
