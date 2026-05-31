@@ -3,6 +3,7 @@ from typing import Tuple
 
 import pygame
 
+from . import settings
 from .grid import Grid, MAX_SIZE
 
 MAX_SCREEN_RATIO = 0.9
@@ -20,7 +21,8 @@ class Life:
 
         self.screen_size = (pygame.display.Info().current_w, pygame.display.Info().current_h) 
         self.screen: pygame.Surface = pygame.display.set_mode((self.screen_size[0]*MAX_SCREEN_RATIO, 
-                                                               self.screen_size[1]*MAX_SCREEN_RATIO))
+                                                               self.screen_size[1]*MAX_SCREEN_RATIO),
+                                                              pygame.RESIZABLE)
 
         self.font_sm = pygame.font.SysFont(None, 22)
         self.font_lg = pygame.font.SysFont(None, 32)
@@ -32,23 +34,30 @@ class Life:
         self._h_plus_rect = pygame.Rect(0, 0, 0, 0)
         self._resize_rect = pygame.Rect(0, 0, 0, 0)
         self.playing: bool = False
-        self.cell_size: Tuple[int, int] = self._calculate_cell_size()
+        self.cell_size: int = 0
+        self.padding_x: int = 0
+        self.padding_y: float = 0
+        self._calculate_cell_size()
+
 
     def _grid_area_width(self) -> int:
         return self.screen.get_width() - PANEL_WIDTH
 
-    def _calculate_cell_size(self) -> Tuple[int, int]:
+    def _calculate_cell_size(self) -> None:
         grid_width, grid_height = self.grid.size
-        cell_width = self._grid_area_width() // grid_width
-        cell_height = self.screen.get_height() // grid_height
-        return cell_width, cell_height
+        grid_area_width = self._grid_area_width()
+        cell_width = grid_area_width // grid_width
+        cell_height = self.screen.get_height() // (grid_height + 1)
+        self.cell_size = min(cell_width, cell_height)
+        self.padding_x = (grid_area_width - (self.cell_size * grid_width)) // 2
+        self.padding_y = cell_height / 2
 
     def draw_grid(self) -> None:
         for y, row in enumerate(self.grid.cells):
             for x, cell in enumerate(row):
                 color = (0, 0, 0) if cell.alive else (200, 200, 200)
-                rect = pygame.Rect(x * self.cell_size[0], y * self.cell_size[1], 
-                                   self.cell_size[0], self.cell_size[1])
+                rect = pygame.Rect(x * self.cell_size + self.padding_x, y * self.cell_size + self.padding_y, 
+                                   self.cell_size, self.cell_size)
                 pygame.draw.rect(self.screen, color, rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
@@ -108,6 +117,8 @@ class Life:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
+            elif event.type == pygame.VIDEORESIZE:
+                self._calculate_cell_size()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.playing = not self.playing
@@ -129,16 +140,17 @@ class Life:
                         self._pending_height = min(MAX_SIZE, self._pending_height + 1)
                     elif self._resize_rect.collidepoint(mouse_pos):
                         self.grid.resize(self._pending_width, self._pending_height)
-                        self.cell_size = self._calculate_cell_size()
+                        self._calculate_cell_size()
                 else:
-                    grid_x = mouse_x // self.cell_size[0]
-                    grid_y = mouse_y // self.cell_size[1]
+                    grid_x = (mouse_x - self.padding_x) // self.cell_size
+                    grid_y = (mouse_y - self.padding_y) // self.cell_size
                     if 0 <= grid_x < self.grid.size[0] and 0 <= grid_y < self.grid.size[1]:
                         self.grid.flip_cell(grid_x, grid_y)
 
     def main(self) -> None:
         self.last_generation_time = time.time()
         while True: # main game loop
+            self.screen.fill(settings.BACKGROUND_COLOR)
             self.event_loop()
             self.draw_grid()
             self.draw_panel()
