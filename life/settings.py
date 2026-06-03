@@ -19,10 +19,9 @@ DEFAULT_GRID_CONFIGURATION = {
 }
 
 MAX_GRID_SIZE = 200
-
 CURRENT_GRID_NAME = "default"
 
-USER_SAVE_FOLDER = "_user_saves"
+USER_SAVE_FOLDER = "user_grids"
 
 
 __all__ = [

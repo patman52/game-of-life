@@ -1,6 +1,7 @@
 
-import json
+
 import os
+import pickle
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
@@ -33,7 +34,8 @@ class Grid:
         self._generation: int = 0
         self._initial_configuration: List[List[bool]] = []
         self._current_grid_name: str = settings.CURRENT_GRID_NAME
-        self._load_grid()
+        self._create_grid_directory()
+        self.load_grid()
 
     def _set_up_cells(self, cell_values: Optional[List[bool]] = None):
         self._cells.clear()
@@ -48,14 +50,23 @@ class Grid:
                 self._cells.append(cell)
                 self._cell_map[y][x] = len(self._cells) - 1
 
-    def _save_grid(self, save_name: Optional[str] = None) -> None:
-        if save_name is None:
-            save_name = self._current_grid_name
-
+    def _create_grid_directory(self):
         if not os.path.isdir(settings.USER_SAVE_FOLDER):
             os.makedirs(settings.USER_SAVE_FOLDER)
 
-        file_path = os.path.join(settings.USER_SAVE_FOLDER, f"{save_name}.json")
+    def save_grid(self, save_name: Optional[str] = None, file_path: Optional[str] = None) -> None:
+        
+        self._create_grid_directory()
+
+        if file_path is not None:
+            save_name, ext = os.path.splitext(os.path.basename(file_path))
+            if ext.lower() != ".grid":
+                file_path += ".grid"
+            
+        else:
+            if save_name is None:
+                save_name = self._current_grid_name
+            file_path = os.path.join(settings.USER_SAVE_FOLDER, f"{save_name}.grid")
 
         user_save = {
             "SIZE": {
@@ -65,42 +76,57 @@ class Grid:
             "CELLS": [cell.alive for cell in self._cells]
         }
 
-        with open(file_path, "w") as f:
-            json.dump(user_save, f)
+        with open(file_path, "wb") as f:
+            pickle.dump(user_save, f)
 
-        save_name_file = os.path.join(settings.USER_SAVE_FOLDER, "current_grid.txt")
+        save_name_file = os.path.join(settings.USER_SAVE_FOLDER, "current_grid.cg")
         with open(save_name_file, "w") as f:
             f.write(save_name)
 
         print(f"Grid saved to '{file_path}'")
 
-    def _load_grid(self, grid_name: Optional[str] = None) -> None:
-        if grid_name is None:
-            save_name_file = os.path.join(settings.USER_SAVE_FOLDER, "current_grid.txt")
-            if os.path.isfile(save_name_file):
-                with open(save_name_file, "r") as f:
-                    grid_name = f.read().strip()
-            else:
-                grid_name = settings.CURRENT_GRID_NAME
-        if grid_name is not None:
-            self._current_grid_name = grid_name
-            grid_name = self._current_grid_name
-
-        file_path = os.path.join(settings.USER_SAVE_FOLDER, f"{grid_name}.json")
-        print(f'Loading grid from "{file_path}"')
-        if os.path.isfile(file_path):
-            with open(file_path, "r") as f:
-                data = json.load(f)
-                self._width = data["SIZE"]["width"]
-                self._height = data["SIZE"]["height"]
-                self._set_up_cells(data["CELLS"])
-
+    def load_grid(self, grid_name: Optional[str] = None, file_path: Optional[str] = None) -> None:
+        if file_path is not None:
+            file_path_to_load = file_path
+            grid_name = os.path.splitext(os.path.basename(file_path))[0]
         else:
-            print(f"Grid file '{file_path}' not found. Loading default configuration.")
+            if grid_name is None:
+                save_name_file = os.path.join(settings.USER_SAVE_FOLDER, "current_grid.cg")
+                if os.path.isfile(save_name_file):
+                    with open(save_name_file, "r") as f:
+                        grid_name = f.read().strip()
+                else:
+                    grid_name = settings.CURRENT_GRID_NAME
+            if grid_name is not None:
+                self._current_grid_name = grid_name
+                grid_name = self._current_grid_name
+
+            file_path_to_load = os.path.join(settings.USER_SAVE_FOLDER, f"{grid_name}.grid")
+
+        file_loaded = False
+        if os.path.isfile(file_path_to_load):
+            try:
+                with open(file_path_to_load, "rb") as f:
+                    data = pickle.load(f)
+                    self._width = data["SIZE"]["width"]
+                    self._height = data["SIZE"]["height"]
+                    self._set_up_cells(data["CELLS"])
+                    file_loaded = True
+                    self._current_grid_name = grid_name
+                    print(f"Grid loaded from '{file_path_to_load}'")
+            except Exception as e:
+                print(f"Error loading grid from '{file_path_to_load}': {e}")
+
+        if not file_loaded:
+            print("Loading default configuration.")
             self._width = settings.DEFAULT_GRID_CONFIGURATION["SIZE"]["width"]
             self._height = settings.DEFAULT_GRID_CONFIGURATION["SIZE"]["height"]
+            self._current_grid_name = settings.CURRENT_GRID_NAME
             self._set_up_cells(settings.DEFAULT_GRID_CONFIGURATION["CELLS"])
-    
+        else:
+            # if the file path was not in the "user_grids" folder, copy it there for future use
+            if file_path is not None and not file_path.startswith(settings.USER_SAVE_FOLDER):
+                self.save_grid(save_name=grid_name)
 
     @property
     def size(self) -> Tuple[int, int]:
@@ -125,7 +151,7 @@ class Grid:
         self._height = height
         self._generation = 0
         self._set_up_cells()
-        self._save_grid()
+        self.save_grid()
 
     @property
     def generation(self) -> int:
@@ -165,7 +191,7 @@ class Grid:
     
     def iterate_generation(self) -> None:
         if self._generation == 0:
-            self._save_grid('initial')
+            self.save_grid(save_name='initial')
         new_states = [[self.get_cell(x, y).alive for x in range(self._width)] for y in range(self._height)]
         for y in range(self._height):
             for x in range(self._width):
@@ -185,7 +211,7 @@ class Grid:
 
     def reset(self) -> None:
         self._generation = 0
-        self._load_grid('initial')
+        self.load_grid('initial')
 
     @property
     def cells(self) -> List[Cell]:
