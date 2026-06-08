@@ -4,27 +4,33 @@ from tkinter import filedialog
 
 from . import settings
 
-def pick_grid_file() -> str:
+
+FILE_TYPES = {
+    'grid': ("Grid Files", "*.grid"),
+    'image': ("Image Files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif"),
+}
+
+def get_file_path(file_type: str = 'grid') -> str:
     root = tk.Tk()
     root.withdraw()  # Hide the main window
     file_path = filedialog.askopenfilename(
-        title="Select a grid file",
-        filetypes=[("Grid Files", "*.grid"), ("All Files", "*.*")],
+        title="Select a file",
+        filetypes=[FILE_TYPES[file_type], ("All Files", "*.*")],
         initialdir=settings.USER_SAVE_FOLDER
     )
     return file_path
 
-def choose_grid_file_path() -> str:
+def choose_file_save_path(file_type: str = 'grid') -> str:
     root = tk.Tk()
     root.withdraw()  # Hide the main window
     file_path = filedialog.asksaveasfilename(
-        title="Select a grid file",
-        filetypes=[("Grid Files", "*.grid"), ("All Files", "*.*")],
+        title="Select a file",
+        filetypes=[FILE_TYPES[file_type], ("All Files", "*.*")],
         initialdir=settings.USER_SAVE_FOLDER
     )
     return file_path
 
 __all__ = [
-    "pick_grid_file",
-    "choose_grid_file_path",
+    "get_file_path",
+    "choose_file_save_path",
 ]

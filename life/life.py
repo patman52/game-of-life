@@ -1,9 +1,10 @@
 import time
+from typing import Optional, Tuple
 
 import pygame
 
 from . import settings
-from .file_dialog_helper import choose_grid_file_path, pick_grid_file
+from .file_dialog_helper import choose_file_save_path, get_file_path
 from .grid import Grid, GridType
 
 MAX_SCREEN_RATIO = 0.9
@@ -75,9 +76,31 @@ class Life:
         self.screen.blit(bounded_text_surf, (rect.centerx - bounded_text_surf.get_width() // 2,
                                              rect.centery - bounded_text_surf.get_height() // 2))
 
-    def _draw_button():
-        # todo - make a helper function for drawing buttons with text centered within them, and use it for all buttons in the panel
-        pass
+    def _draw_button(self, 
+                     rect: pygame.Rect, 
+                     position_size: Tuple[int, int, int, int], 
+                     bg_color: Tuple[int, int, int], 
+                     text: Optional[str] = None,  
+                     text_color: Tuple[int, int, int] = (220, 220, 220),
+                     justify_x: str = 'c'
+        ) -> None:
+        x, y, w, h = position_size
+
+        if justify_x == 'c':
+            x_0 = x - w // 2
+        elif justify_x == 'l':
+            x_0 = x
+        elif justify_x == 'r':
+            x_0 = x - w
+        else:
+            raise ValueError("justify_x must be 'c', 'l', or 'r'")
+
+        rect = pygame.Rect(x_0, y, w, h)
+        pygame.draw.rect(self.screen, bg_color, rect)
+        if text is not None:
+            
+            text_surf = self.font_sm.render(text, True, text_color)
+            self._draw_bounded_text(text_surf, rect)
 
     def _draw_panel_section():
         # todo - make a helper function for drawing the different sections of the panel, with a title and a dividing line underneath, and use it for the "Generation Counter", "Grid Size Controls", "Grid Type Controls", and "Save/Load Controls" sections
@@ -97,48 +120,38 @@ class Life:
         # Grid size controls
         self.screen.blit(self.font_sm.render("Grid Size", True, (160, 160, 160)), (px + 10, 95))
 
-        btn_bg = (85, 85, 85)
-        selected_bg = (55, 110, 55)
-        txt_col = (220, 220, 220)
 
         # Width row: W: [-] value [+]
-        self.screen.blit(self.font_sm.render("W:", True, txt_col), (px + 10, 128))
         self._w_minus_rect = pygame.Rect(px + 52, 124, 26, 26)
         self._w_plus_rect = pygame.Rect(px + 112, 124, 26, 26)
-        pygame.draw.rect(self.screen, btn_bg, self._w_minus_rect)
-        pygame.draw.rect(self.screen, btn_bg, self._w_plus_rect)
-        minus_surf = self.font_sm.render("-", True, txt_col)
-        plus_surf = self.font_sm.render("+", True, txt_col)
-        self._draw_bounded_text(minus_surf, self._w_minus_rect)
-        self._draw_bounded_text(plus_surf, self._w_plus_rect)
-        self.screen.blit(self.font_sm.render(str(self._pending_width), True, txt_col), (px + 83, 128))
+        self._draw_button(self._w_minus_rect, (px + 65, 124, 26, 26), settings.BTN_BG, "-", settings.TXT_COL)
+        self._draw_button(self._w_plus_rect, (px + 125, 124, 26, 26), settings.BTN_BG, "+", settings.TXT_COL)
+
+        self.screen.blit(self.font_sm.render("W:", True, settings.TXT_COL), (px + 10, 128))
+        self.screen.blit(self.font_sm.render(str(self._pending_width), True, settings.TXT_COL), (px + 83, 128))
 
         # Height row: H: [-] value [+]
-        self.screen.blit(self.font_sm.render("H:", True, txt_col), (px + 10, 168))
+        self.screen.blit(self.font_sm.render("H:", True, settings.TXT_COL), (px + 10, 168))
         self._h_minus_rect = pygame.Rect(px + 52, 164, 26, 26)
         self._h_plus_rect = pygame.Rect(px + 112, 164, 26, 26)
-        pygame.draw.rect(self.screen, btn_bg, self._h_minus_rect)
-        pygame.draw.rect(self.screen, btn_bg, self._h_plus_rect)
-        self._draw_bounded_text(minus_surf, self._h_minus_rect)
-        self._draw_bounded_text(plus_surf, self._h_plus_rect)
-        self.screen.blit(self.font_sm.render(str(self._pending_height), True, txt_col), (px + 83, 168))
+        self._draw_button(self._h_minus_rect, (px + 65, 164, 26, 26), settings.BTN_BG, "-", settings.TXT_COL)
+        self._draw_button(self._h_plus_rect, (px + 125, 164, 26, 26), settings.BTN_BG, "+", settings.TXT_COL)
+        self.screen.blit(self.font_sm.render(str(self._pending_height), True, settings.TXT_COL), (px + 83, 168))
 
         # Apply Size button (greyed out while playing)
         apply_col = (55, 110, 55) if not self.playing else (65, 65, 65)
         self._resize_rect = pygame.Rect(px + 15, 210, 170, 34)
-        pygame.draw.rect(self.screen, apply_col, self._resize_rect)
-        apply_surf = self.font_sm.render("Apply Size", True, txt_col)
-        self._draw_bounded_text(apply_surf, self._resize_rect)
-
+        self._draw_button(self._resize_rect, (px + 100, 210, 170, 34), apply_col, "Apply Size", settings.TXT_COL)
+        
         # grid type controls (bounded or toroidal)
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 260), (px + PANEL_WIDTH - 10, 260), 1)
         self.screen.blit(self.font_sm.render("Grid Type", True, (160, 160, 160)), (px + 10, 275))
         self._bounded_rect = pygame.Rect(px + 15, 310, 80, 30)
         self._toroidal_rect = pygame.Rect(px + 105, 310, 80, 30)
-        pygame.draw.rect(self.screen, selected_bg if self.grid.type == GridType.Bounded else btn_bg, self._bounded_rect)
-        pygame.draw.rect(self.screen, selected_bg if self.grid.type == GridType.Toroidal else btn_bg, self._toroidal_rect)
-        bounded_surf = self.font_sm.render("Bounded", True, txt_col)
-        toroidal_surf = self.font_sm.render("Toroidal", True, txt_col)
+        pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Bounded else settings.BTN_BG, self._bounded_rect)
+        pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Toroidal else settings.BTN_BG, self._toroidal_rect)
+        bounded_surf = self.font_sm.render("Bounded", True, settings.TXT_COL)
+        toroidal_surf = self.font_sm.render("Toroidal", True, settings.TXT_COL)
         self._draw_bounded_text(bounded_surf, self._bounded_rect)
         self._draw_bounded_text(toroidal_surf, self._toroidal_rect)
 
@@ -147,36 +160,33 @@ class Life:
         self.screen.blit(self.font_sm.render("Save / Load Grid", True, (160, 160, 160)), (px + 10, 375))
         self._save_rect = pygame.Rect(px + 15, 400, 80, 30)
         self._load_rect = pygame.Rect(px + 105, 400, 80, 30)
-        pygame.draw.rect(self.screen, btn_bg, self._save_rect)
-        pygame.draw.rect(self.screen, btn_bg, self._load_rect)
-        save_surf = self.font_sm.render("Save", True, txt_col)
-        load_surf = self.font_sm.render("Load", True, txt_col)
-        self._draw_bounded_text(save_surf, self._save_rect)
-        self._draw_bounded_text(load_surf, self._load_rect)
+        self._draw_button(self._save_rect, (px + 15, 400, 80, 30), settings.BTN_BG, "Save", settings.TXT_COL, justify_x='l')
+        self._draw_button(self._load_rect, (px + 105, 400, 80, 30), settings.BTN_BG, "Load", settings.TXT_COL, justify_x='l')
 
         # image to grid button
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 445), (px + PANEL_WIDTH - 10, 445), 1)
         self.screen.blit(self.font_sm.render("Import from Image", True, (160, 160, 160)), (px + 10, 460))
         self._image_to_grid_rect = pygame.Rect(px + 15, 485, 170, 30)
-        pygame.draw.rect(self.screen, btn_bg, self._image_to_grid_rect)
-        img2grid_surf = self.font_sm.render("Image to Grid", True, txt_col)
-        self._draw_bounded_text(img2grid_surf, self._image_to_grid_rect)
+        self._draw_button(self._image_to_grid_rect, (px + 15, 485, 170, 30), settings.BTN_BG, "Image to Grid", settings.TXT_COL, justify_x='l')
 
     def _save_grid_to_file(self) -> None:
-        file_path = choose_grid_file_path()
+        file_path = choose_file_save_path()
         if file_path:
             self.grid.save_grid(file_path=file_path)
         else:
             print("Save cancelled")
     
     def _load_grid_from_file(self) -> None:
-        file_path = pick_grid_file()
+        file_path = get_file_path()
         if file_path:
             self.grid.load_grid(file_path=file_path)
             self._pending_width, self._pending_height = self.grid.size
             self._calculate_cell_size()
         else:
             print("Load cancelled")
+
+    def _load_image_to_grid(self) -> None:
+        pass
 
     def event_loop(self) -> None:
         for event in pygame.event.get():
@@ -215,6 +225,9 @@ class Life:
                         self._save_grid_to_file()
                     elif self._load_rect.collidepoint(mouse_pos):
                         self._load_grid_from_file()
+                    elif self._image_to_grid_rect.collidepoint(mouse_pos):
+                        self._load_image_to_grid()
+
                 else:
                     grid_x = (mouse_x - self.padding_x) // self.cell_size
                     grid_y = (mouse_y - self.padding_y) // self.cell_size
