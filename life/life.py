@@ -1,11 +1,12 @@
 import time
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pygame
 
 from . import settings
 from .file_dialog_helper import choose_file_save_path, get_file_path
 from .grid import Grid, GridType
+from .image_to_grid import image_to_grid, load_image
 
 MAX_SCREEN_RATIO = 0.9
 PANEL_WIDTH = 200
@@ -39,13 +40,19 @@ class Life:
         self._toroidal_rect = pygame.Rect(0, 0, 0, 0)
         self._save_rect = pygame.Rect(0, 0, 0, 0)
         self._load_rect = pygame.Rect(0, 0, 0, 0)
+
+        # image to grid 
         self._image_to_grid_rect = pygame.Rect(0, 0, 0, 0)
+        self.show_image_to_grid_panel: bool = False
+        self.image: Optional[pygame.Surface] = None
+        self.image_grid_values: Optional[List[bool]] = None
+        self.bw_image_preview: Optional[pygame.Surface] = None
+
         self.playing: bool = False
         self.cell_size: int = 0
         self.padding_x: int = 0
         self.padding_y: float = 0
         self._calculate_cell_size()
-
 
     def _grid_area_width(self) -> int:
         return self.screen.get_width() - PANEL_WIDTH
@@ -72,6 +79,30 @@ class Life:
                 pygame.draw.rect(self.screen, color, rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
+    def draw_image_to_grid_panel(self) -> None:
+        # todo image alignment, exit button, resize button, apply button, etc.
+        w = self.screen.get_width() - PANEL_WIDTH
+        h = self.screen.get_height() - PANEL_WIDTH
+        x = PANEL_WIDTH/2
+        y = PANEL_WIDTH/2
+        rect = pygame.Rect(x, y, w, h)
+        pygame.draw.rect(self.screen, (45, 45, 45), rect)
+        pygame.draw.rect(self.screen, (0, 0, 0), rect, 8)
+        # draw the image and the bw preview side by side
+        if self.image is not None and self.bw_image_preview is not None:
+            img_w, img_h = self.image.get_size()
+            ratio = img_w / img_h
+            if img_w > img_h:
+                target_w = w/2 - 20
+                target_h = target_w / ratio
+            else:
+                target_h = h/2
+                target_w = target_h * ratio
+            img_x = x + (w - target_w) / 2
+            img_y = y + (h - target_h) / 2
+            self.screen.blit(pygame.transform.scale(self.image, (int(target_w), int(target_h))), (img_x, img_y))
+            self.screen.blit(pygame.transform.scale(self.bw_image_preview, (int(target_w), int(target_h))), (img_x + target_w + 10, img_y))
+    
     def _draw_bounded_text(self, bounded_text_surf: pygame.Surface, rect: pygame.Rect) -> None:
         self.screen.blit(bounded_text_surf, (rect.centerx - bounded_text_surf.get_width() // 2,
                                              rect.centery - bounded_text_surf.get_height() // 2))
@@ -98,13 +129,8 @@ class Life:
         rect = pygame.Rect(x_0, y, w, h)
         pygame.draw.rect(self.screen, bg_color, rect)
         if text is not None:
-            
             text_surf = self.font_sm.render(text, True, text_color)
             self._draw_bounded_text(text_surf, rect)
-
-    def _draw_panel_section():
-        # todo - make a helper function for drawing the different sections of the panel, with a title and a dividing line underneath, and use it for the "Generation Counter", "Grid Size Controls", "Grid Type Controls", and "Save/Load Controls" sections
-        pass
 
     def draw_panel(self) -> None:
         px = self._grid_area_width()
@@ -119,7 +145,6 @@ class Life:
 
         # Grid size controls
         self.screen.blit(self.font_sm.render("Grid Size", True, (160, 160, 160)), (px + 10, 95))
-
 
         # Width row: W: [-] value [+]
         self._w_minus_rect = pygame.Rect(px + 52, 124, 26, 26)
@@ -186,7 +211,24 @@ class Life:
             print("Load cancelled")
 
     def _load_image_to_grid(self) -> None:
-        pass
+        image_path = get_file_path(file_type='image')
+        if image_path:
+            self.show_image_to_grid_panel = True
+        try:
+            self.image = load_image(image_path)
+        except Exception as e:
+            print(f"Error loading image: {e}")
+            self.show_image_to_grid_panel = False
+            return
+        img_width, img_height = self.image.get_size()
+        ratio = img_width / img_height
+        # set to max grid size
+        target_width = min(max(img_width, img_height), settings.MAX_GRID_SIZE)
+        target_height = int(target_width / ratio)
+
+        self.image_grid_values, self.bw_image_preview = image_to_grid(self.image, target_width, target_height)
+
+
 
     def event_loop(self) -> None:
         for event in pygame.event.get():
@@ -241,7 +283,6 @@ class Life:
             self.event_loop()
             self.draw_grid()
             self.draw_panel()
-            pygame.display.flip()
             if self.playing:
                 if self.grid.all_cells_dead:
                     self.playing = False
@@ -250,4 +291,8 @@ class Life:
                 if current_time - self.last_generation_time >= self.seconds_per_generation:
                     self.grid.iterate_generation()
                     self.last_generation_time = current_time
+
+            if self.show_image_to_grid_panel:
+                self.draw_image_to_grid_panel()
+            pygame.display.flip()
             self.clock.tick(self.fps)

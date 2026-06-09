@@ -83,8 +83,6 @@ class Grid:
         with open(save_name_file, "w") as f:
             f.write(save_name)
 
-        print(f"Grid saved to '{file_path}'")
-
     def load_grid(self, grid_name: Optional[str] = None, file_path: Optional[str] = None) -> None:
         if file_path is not None:
             file_path_to_load = file_path
@@ -113,12 +111,10 @@ class Grid:
                     self._set_up_cells(data["CELLS"])
                     file_loaded = True
                     self._current_grid_name = grid_name
-                    print(f"Grid loaded from '{file_path_to_load}'")
             except Exception as e:
                 print(f"Error loading grid from '{file_path_to_load}': {e}")
 
         if not file_loaded:
-            print("Loading default configuration.")
             self._width = settings.DEFAULT_GRID_CONFIGURATION["SIZE"]["width"]
             self._height = settings.DEFAULT_GRID_CONFIGURATION["SIZE"]["height"]
             self._current_grid_name = settings.CURRENT_GRID_NAME
