@@ -138,7 +138,7 @@ class Grid:
             raise ValueError("Grid type must be an instance of GridType enum")
         self._type = grid_type
 
-    def resize(self, width: int, height: int) -> None:
+    def resize(self, width: int, height: int, values: Optional[List[bool]] = None) -> None:
         if not (isinstance(width, int) and width > 0 and isinstance(height, int) and height > 0):
             raise ValueError("Width and height must be positive integers")
         if width > settings.MAX_GRID_SIZE or height > settings.MAX_GRID_SIZE:
@@ -146,7 +146,7 @@ class Grid:
         self._width = width
         self._height = height
         self._generation = 0
-        self._set_up_cells()
+        self._set_up_cells(values)
         self.save_grid()
 
     @property

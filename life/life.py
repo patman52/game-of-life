@@ -40,13 +40,22 @@ class Life:
         self._toroidal_rect = pygame.Rect(0, 0, 0, 0)
         self._save_rect = pygame.Rect(0, 0, 0, 0)
         self._load_rect = pygame.Rect(0, 0, 0, 0)
+        self._close_image_panel_rect = pygame.Rect(0, 0, 0, 0)
 
         # image to grid 
         self._image_to_grid_rect = pygame.Rect(0, 0, 0, 0)
         self.show_image_to_grid_panel: bool = False
         self.image: Optional[pygame.Surface] = None
         self.image_grid_values: Optional[List[bool]] = None
+        self.image_grid_original_width: int = 0
+        self.image_grid_original_height: int = 0
+        self.image_grid_width: int = 0
+        self.image_grid_height: int = 0
         self.bw_image_preview: Optional[pygame.Surface] = None
+        self._grid_preview_minus_rect = pygame.Rect(0, 0, 0, 0)
+        self._grid_preview_plus_rect = pygame.Rect(0, 0, 0, 0)
+        self.image_grid_preview_scale: float = 1.0
+        self._apply_image_grid_rect = pygame.Rect(0, 0, 0, 0)
 
         self.playing: bool = False
         self.cell_size: int = 0
@@ -79,30 +88,82 @@ class Life:
                 pygame.draw.rect(self.screen, color, rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
+    def _resize_image_to_grid(self) -> None:
+        if self.image is None:
+            return
+        self.image_grid_width = int(self.image_grid_original_width * self.image_grid_preview_scale)
+        self.image_grid_height = int(self.image_grid_original_height * self.image_grid_preview_scale)
+        self.image_grid_values, self.bw_image_preview = image_to_grid(self.image, self.image_grid_width, self.image_grid_height)
+
     def draw_image_to_grid_panel(self) -> None:
         # todo image alignment, exit button, resize button, apply button, etc.
         w = self.screen.get_width() - PANEL_WIDTH
         h = self.screen.get_height() - PANEL_WIDTH
         x = PANEL_WIDTH/2
+        panel_x = x + w - PANEL_WIDTH
         y = PANEL_WIDTH/2
-        rect = pygame.Rect(x, y, w, h)
-        pygame.draw.rect(self.screen, (45, 45, 45), rect)
-        pygame.draw.rect(self.screen, (0, 0, 0), rect, 8)
-        # draw the image and the bw preview side by side
-        if self.image is not None and self.bw_image_preview is not None:
-            img_w, img_h = self.image.get_size()
-            ratio = img_w / img_h
-            if img_w > img_h:
-                target_w = w/2 - 20
-                target_h = target_w / ratio
-            else:
-                target_h = h/2
-                target_w = target_h * ratio
-            img_x = x + (w - target_w) / 2
-            img_y = y + (h - target_h) / 2
-            self.screen.blit(pygame.transform.scale(self.image, (int(target_w), int(target_h))), (img_x, img_y))
-            self.screen.blit(pygame.transform.scale(self.bw_image_preview, (int(target_w), int(target_h))), (img_x + target_w + 10, img_y))
+        outer_rect = pygame.Rect(x, y, w, h)
+        pygame.draw.rect(self.screen, (45, 45, 45), outer_rect)
     
+        # draw panel
+        pygame.draw.rect(self.screen, (80, 80, 80), (panel_x, y, PANEL_WIDTH, h))
+        pygame.draw.line(self.screen, (90, 90, 90), (panel_x, y), (panel_x , y + h), 2)
+        pygame.draw.rect(self.screen, (0, 0, 0), outer_rect, 5)
+
+        # draw the image and the bw preview side by side
+       
+        img_w, img_h = self.image.get_size()
+        ratio = img_w / img_h
+        if img_w > img_h:
+            target_w = w/4
+            target_h = target_w / ratio
+        else:
+            target_h = h*.75
+            target_w = target_h * ratio
+        gap = (w - PANEL_WIDTH - target_w*2) / 3
+        original_img_x = x + gap
+        original_img_y = y + (h - target_h) / 2
+        bw_img_x = original_img_x + target_w + gap
+        bw_img_y = original_img_y
+
+        self.screen.blit(pygame.transform.scale(self.image, (int(target_w), int(target_h))), (original_img_x, original_img_y))
+        self.screen.blit(pygame.transform.scale(self.bw_image_preview, (int(target_w), int(target_h))), (bw_img_x, bw_img_y))
+
+        # draw labels above the original and bw previews
+        original_surf = self.font_sm.render("Original", True, (220, 220, 220))
+        bw_surf = self.font_sm.render("Grid Preview", True, (220, 220, 220))
+        self._draw_bounded_text(original_surf, pygame.Rect(original_img_x, original_img_y - 30, target_w, 20))
+        self._draw_bounded_text(bw_surf, pygame.Rect(bw_img_x, bw_img_y - 30, target_w, 20))
+
+        # draw the current image size underneath the original
+        size_text = f"Current Image Size: {img_w} x {img_h}"
+        size_surf = self.font_sm.render(size_text, True, (220, 220, 220))
+        self._draw_bounded_text(size_surf, pygame.Rect(original_img_x, original_img_y + target_h + 10, target_w, 20))
+
+        # draw the grid preview size underneath the bw preview
+        preview_size_text = f"Grid Preview Size: {self.image_grid_width} x {self.image_grid_height}"
+        preview_size_surf = self.font_sm.render(preview_size_text, True, (220, 220, 220))
+        self._draw_bounded_text(preview_size_surf, pygame.Rect(bw_img_x, bw_img_y + target_h + 10, target_w, 20))
+
+        # draw close button in top right corner of panel 
+        self._close_image_panel_rect = pygame.Rect(panel_x + PANEL_WIDTH - 30, y + 10, 20, 20)
+        self._draw_button(self._close_image_panel_rect, (panel_x + PANEL_WIDTH - 30, y + 10, 20, 20), (200, 50, 50), "X", (255, 255, 255))
+
+        # draw a plus and minus button to adjust the grid preview % size
+        self._grid_preview_minus_rect = pygame.Rect(panel_x + PANEL_WIDTH - 60, y + 50, 26, 26)
+        self._grid_preview_plus_rect = pygame.Rect(panel_x + PANEL_WIDTH - 30, y + 50, 26, 26)
+        self._draw_button(self._grid_preview_minus_rect, (panel_x + PANEL_WIDTH - 60, y + 50, 26, 26), settings.BTN_BG, "-", settings.TXT_COL)
+        self._draw_button(self._grid_preview_plus_rect, (panel_x + PANEL_WIDTH - 30, y + 50, 26, 26), settings.BTN_BG, "+", settings.TXT_COL)
+        # draw label for grid preview size adjustment
+        preview_scale_text = f"Grid Preview Scale: {int(self.image_grid_preview_scale*100)}%"
+        preview_scale_surf = self.font_sm.render(preview_scale_text, True, (220, 220, 220))
+        self._draw_bounded_text(preview_scale_surf, pygame.Rect(panel_x + PANEL_WIDTH - 60, y + 80, 60, 20))
+
+        # draw apply button to set the current grid to the image preview
+        apply_col = (55, 110, 55) if not self.playing else (65, 65, 65)
+        self._apply_image_grid_rect = pygame.Rect(panel_x + PANEL_WIDTH - 60, y + 110, 80, 30)  
+        self._draw_button(self._apply_image_grid_rect, (panel_x + PANEL_WIDTH - 60, y + 110, 80, 30), apply_col, "Apply Grid", settings.TXT_COL)
+
     def _draw_bounded_text(self, bounded_text_surf: pygame.Surface, rect: pygame.Rect) -> None:
         self.screen.blit(bounded_text_surf, (rect.centerx - bounded_text_surf.get_width() // 2,
                                              rect.centery - bounded_text_surf.get_height() // 2))
@@ -227,8 +288,15 @@ class Life:
         target_height = int(target_width / ratio)
 
         self.image_grid_values, self.bw_image_preview = image_to_grid(self.image, target_width, target_height)
+        self.image_grid_original_width = target_width
+        self.image_grid_width = target_width
+        self.image_grid_original_height = target_height
+        self.image_grid_height = target_height
 
-
+    def _adjust_grid_preview_scale(self, delta: float) -> None:
+        new_scale = self.image_grid_preview_scale + delta
+        if 0.0 <= new_scale <= 1.0:
+            self.image_grid_preview_scale = new_scale
 
     def event_loop(self) -> None:
         for event in pygame.event.get():
@@ -247,34 +315,49 @@ class Life:
                     return
                 mouse_pos = pygame.mouse.get_pos()
                 mouse_x, mouse_y = mouse_pos
-                if mouse_x >= self._grid_area_width():
-                    if self._w_minus_rect.collidepoint(mouse_pos):
-                        self._pending_width = max(1, self._pending_width - 1)
-                    elif self._w_plus_rect.collidepoint(mouse_pos):
-                        self._pending_width = min(settings.MAX_GRID_SIZE, self._pending_width + 1)
-                    elif self._h_minus_rect.collidepoint(mouse_pos):
-                        self._pending_height = max(1, self._pending_height - 1)
-                    elif self._h_plus_rect.collidepoint(mouse_pos):
-                        self._pending_height = min(settings.MAX_GRID_SIZE, self._pending_height + 1)
-                    elif self._resize_rect.collidepoint(mouse_pos):
-                        self.grid.resize(self._pending_width, self._pending_height)
-                        self._calculate_cell_size()
-                    elif self._bounded_rect.collidepoint(mouse_pos):
-                        self.grid.type = GridType.Bounded
-                    elif self._toroidal_rect.collidepoint(mouse_pos):
-                        self.grid.type = GridType.Toroidal
-                    elif self._save_rect.collidepoint(mouse_pos):
-                        self._save_grid_to_file()
-                    elif self._load_rect.collidepoint(mouse_pos):
-                        self._load_grid_from_file()
-                    elif self._image_to_grid_rect.collidepoint(mouse_pos):
-                        self._load_image_to_grid()
+                if not self.show_image_to_grid_panel:
+                    if mouse_x >= self._grid_area_width():
+                        if self._w_minus_rect.collidepoint(mouse_pos):
+                            self._pending_width = max(1, self._pending_width - 1)
+                        elif self._w_plus_rect.collidepoint(mouse_pos):
+                            self._pending_width = min(settings.MAX_GRID_SIZE, self._pending_width + 1)
+                        elif self._h_minus_rect.collidepoint(mouse_pos):
+                            self._pending_height = max(1, self._pending_height - 1)
+                        elif self._h_plus_rect.collidepoint(mouse_pos):
+                            self._pending_height = min(settings.MAX_GRID_SIZE, self._pending_height + 1)
+                        elif self._resize_rect.collidepoint(mouse_pos):
+                            self.grid.resize(self._pending_width, self._pending_height)
+                            self._calculate_cell_size()
+                        elif self._bounded_rect.collidepoint(mouse_pos):
+                            self.grid.type = GridType.Bounded
+                        elif self._toroidal_rect.collidepoint(mouse_pos):
+                            self.grid.type = GridType.Toroidal
+                        elif self._save_rect.collidepoint(mouse_pos):
+                            self._save_grid_to_file()
+                        elif self._load_rect.collidepoint(mouse_pos):
+                            self._load_grid_from_file()
+                        elif self._image_to_grid_rect.collidepoint(mouse_pos):
+                            self._load_image_to_grid()
 
+                    else:
+                        grid_x = (mouse_x - self.padding_x) // self.cell_size
+                        grid_y = (mouse_y - self.padding_y) // self.cell_size
+                        if 0 <= grid_x < self.grid.size[0] and 0 <= grid_y < self.grid.size[1]:
+                            self.grid.flip_cell(grid_x, grid_y)
                 else:
-                    grid_x = (mouse_x - self.padding_x) // self.cell_size
-                    grid_y = (mouse_y - self.padding_y) // self.cell_size
-                    if 0 <= grid_x < self.grid.size[0] and 0 <= grid_y < self.grid.size[1]:
-                        self.grid.flip_cell(grid_x, grid_y)
+                    if self._close_image_panel_rect.collidepoint(mouse_pos):
+                        self.show_image_to_grid_panel = False
+                        self.image = None
+                        self.bw_image_preview = None
+                        self.image_grid_values = None
+                    elif self._grid_preview_minus_rect.collidepoint(mouse_pos):
+                        self._adjust_grid_preview_scale(-0.1)
+                      
+                    elif self._grid_preview_plus_rect.collidepoint(mouse_pos):
+                        self._adjust_grid_preview_scale(0.1)
+                    elif self._apply_image_grid_rect.collidepoint(mouse_pos):
+                        self._resize_image_to_grid()
+
 
     def main(self) -> None:
         self.last_generation_time = time.time()
