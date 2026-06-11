@@ -25,6 +25,7 @@ class Life:
         self.last_generation_time: float = 0.0
         self.clock = pygame.time.Clock()
         self.grid = Grid()
+        self._show_grid_lines: bool = True
 
         self.screen_size = (pygame.display.Info().current_w, pygame.display.Info().current_h) 
         self.screen: pygame.Surface = pygame.display.set_mode((self.screen_size[0]*MAX_SCREEN_RATIO, 
@@ -92,8 +93,8 @@ class Life:
                                    self.cell_size, self.cell_size)
                 pygame.draw.rect(self.screen, color, rect)
                 # if the size of the grid is small enough, draw a border around each cell
-                if self.cell_size >= 10:
-                    pygame.draw.rect(self.screen, (0, 25, 25), rect, 1)
+                if self._show_grid_lines:
+                    pygame.draw.rect(self.screen, (25, 25, 25), rect, 1)
 
     def _resize_image_to_grid(self) -> None:
         if self.image is None:
@@ -256,6 +257,11 @@ class Life:
         self.screen.blit(self.font_sm.render("Import from Image", True, (160, 160, 160)), (px + 10, 460))
         self._draw_button(self._image_to_grid_rect, (px + 15, 485), settings.BTN_BG, "Image to Grid", settings.TXT_COL, justify_x='l')
 
+        # draw help text at the bottom
+        help_text = "Space: Play/Pause | R: Reset | L: Toggle Grid Lines"
+        help_surf = self.font_sm.render(help_text, True, (160, 160, 160))
+        self._draw_bounded_text(help_surf, pygame.Rect(px/2-PANEL_WIDTH, self.screen.get_height() - 30, PANEL_WIDTH, 20))
+        
     def _save_grid_to_file(self) -> None:
         file_path = choose_file_save_path()
         if file_path:
@@ -315,6 +321,8 @@ class Life:
                     self.playing = not self.playing
                 elif event.key == pygame.K_r and not self.playing:
                     self.grid.reset()
+                elif event.key == pygame.K_l:
+                    self._show_grid_lines = not self._show_grid_lines
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if self.playing or self.grid.generation > 0:
                     return
