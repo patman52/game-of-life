@@ -146,12 +146,9 @@ class Life:
         self._draw_bounded_text(preview_size_surf, pygame.Rect(bw_img_x, bw_img_y + target_h + 10, target_w, 20))
 
         # draw close button in top right corner of panel 
-        self._close_image_panel_rect = pygame.Rect(panel_x + PANEL_WIDTH - 30, y + 10, 20, 20)
         self._draw_button(self._close_image_panel_rect, (panel_x + PANEL_WIDTH - 30, y + 10, 20, 20), (200, 50, 50), "X", (255, 255, 255))
 
         # draw a plus and minus button to adjust the grid preview % size
-        self._grid_preview_minus_rect = pygame.Rect(panel_x + PANEL_WIDTH - 60, y + 50, 26, 26)
-        self._grid_preview_plus_rect = pygame.Rect(panel_x + PANEL_WIDTH - 30, y + 50, 26, 26)
         self._draw_button(self._grid_preview_minus_rect, (panel_x + PANEL_WIDTH - 60, y + 50, 26, 26), settings.BTN_BG, "-", settings.TXT_COL)
         self._draw_button(self._grid_preview_plus_rect, (panel_x + PANEL_WIDTH - 30, y + 50, 26, 26), settings.BTN_BG, "+", settings.TXT_COL)
         # draw label for grid preview size adjustment
@@ -161,7 +158,6 @@ class Life:
 
         # draw apply button to set the current grid to the image preview
         apply_col = (55, 110, 55) if not self.playing else (65, 65, 65)
-        self._apply_image_grid_rect = pygame.Rect(panel_x + PANEL_WIDTH - 60, y + 110, 80, 30)  
         self._draw_button(self._apply_image_grid_rect, (panel_x + PANEL_WIDTH - 60, y + 110, 80, 30), apply_col, "Apply Grid", settings.TXT_COL)
 
     def _draw_bounded_text(self, bounded_text_surf: pygame.Surface, rect: pygame.Rect) -> None:
@@ -187,7 +183,8 @@ class Life:
         else:
             raise ValueError("justify_x must be 'c', 'l', or 'r'")
 
-        rect = pygame.Rect(x_0, y, w, h)
+        rect.update(x_0, y, w, h)
+
         pygame.draw.rect(self.screen, bg_color, rect)
         if text is not None:
             text_surf = self.font_sm.render(text, True, text_color)
@@ -208,8 +205,6 @@ class Life:
         self.screen.blit(self.font_sm.render("Grid Size", True, (160, 160, 160)), (px + 10, 95))
 
         # Width row: W: [-] value [+]
-        self._w_minus_rect = pygame.Rect(px + 52, 124, 26, 26)
-        self._w_plus_rect = pygame.Rect(px + 112, 124, 26, 26)
         self._draw_button(self._w_minus_rect, (px + 65, 124, 26, 26), settings.BTN_BG, "-", settings.TXT_COL)
         self._draw_button(self._w_plus_rect, (px + 125, 124, 26, 26), settings.BTN_BG, "+", settings.TXT_COL)
 
@@ -218,15 +213,12 @@ class Life:
 
         # Height row: H: [-] value [+]
         self.screen.blit(self.font_sm.render("H:", True, settings.TXT_COL), (px + 10, 168))
-        self._h_minus_rect = pygame.Rect(px + 52, 164, 26, 26)
-        self._h_plus_rect = pygame.Rect(px + 112, 164, 26, 26)
         self._draw_button(self._h_minus_rect, (px + 65, 164, 26, 26), settings.BTN_BG, "-", settings.TXT_COL)
         self._draw_button(self._h_plus_rect, (px + 125, 164, 26, 26), settings.BTN_BG, "+", settings.TXT_COL)
         self.screen.blit(self.font_sm.render(str(self._pending_height), True, settings.TXT_COL), (px + 83, 168))
 
         # Apply Size button (greyed out while playing)
         apply_col = (55, 110, 55) if not self.playing else (65, 65, 65)
-        self._resize_rect = pygame.Rect(px + 15, 210, 170, 34)
         self._draw_button(self._resize_rect, (px + 100, 210, 170, 34), apply_col, "Apply Size", settings.TXT_COL)
         
         # grid type controls (bounded or toroidal)
@@ -244,15 +236,12 @@ class Life:
         # Save and Load buttons
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 360), (px + PANEL_WIDTH - 10, 360), 1)
         self.screen.blit(self.font_sm.render("Save / Load Grid", True, (160, 160, 160)), (px + 10, 375))
-        self._save_rect = pygame.Rect(px + 15, 400, 80, 30)
-        self._load_rect = pygame.Rect(px + 105, 400, 80, 30)
         self._draw_button(self._save_rect, (px + 15, 400, 80, 30), settings.BTN_BG, "Save", settings.TXT_COL, justify_x='l')
         self._draw_button(self._load_rect, (px + 105, 400, 80, 30), settings.BTN_BG, "Load", settings.TXT_COL, justify_x='l')
 
         # image to grid button
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 445), (px + PANEL_WIDTH - 10, 445), 1)
         self.screen.blit(self.font_sm.render("Import from Image", True, (160, 160, 160)), (px + 10, 460))
-        self._image_to_grid_rect = pygame.Rect(px + 15, 485, 170, 30)
         self._draw_button(self._image_to_grid_rect, (px + 15, 485, 170, 30), settings.BTN_BG, "Image to Grid", settings.TXT_COL, justify_x='l')
 
     def _save_grid_to_file(self) -> None:
