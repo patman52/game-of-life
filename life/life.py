@@ -10,107 +10,21 @@ from math import sqrt
 from typing import Dict, List, Optional, Tuple
 
 import pygame
+pygame.init()
 
 from . import settings
+from .button import Button, BUTTON_WIDTH, MED_BUTTON_WIDTH, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT
 from .file_dialog_helper import choose_file_save_path, get_file_path
 from .grid import Grid, GridType
 from .image_to_grid import image_to_grid, load_image
 
 MAX_SCREEN_RATIO = 0.9
 PANEL_WIDTH = 200
-SMALL_BUTTON_WIDTH = 30
-BUTTON_HEIGHT = 30
-BUTTON_WIDTH = 160
-MED_BUTTON_WIDTH = 80
+
 MIN_GEN_SECONDS = 0.1
 MAX_GEN_SECONDS = 1.0
 
-pygame.init()
 
-class Button:
-    def __init__(self, 
-                 screen: pygame.Surface,
-                 screen_name: str,
-                 position: Tuple[int, int],
-                 width: int = BUTTON_WIDTH,
-                 height: int = BUTTON_HEIGHT,
-                 method: Optional[callable] = None,
-                 bg_color: Tuple[int, int, int] = settings.BTN_BG, 
-                 pressed_color: Tuple[int, int, int] = settings.SELECTED_BG, 
-                 deactivated_color: Tuple[int, int, int] = settings.DEACTIVATED_BG,
-                 text: Optional[str] = None, 
-                 text_color: Tuple[int, int, int] = (220, 220, 220),
-                 font: Optional[pygame.font.Font] = pygame.font.SysFont(None, 22),
-                 activate_on_press: bool = False,
-                 latch: bool = False,
-                 lock_while_playing: bool = True
-        ):
-        self.rect = pygame.Rect(position, (width, height))
-        self.screen = screen
-        self.screen_name = screen_name
-        self.bg_color = bg_color
-        self.pressed_color = pressed_color
-        self.deactivated_color = deactivated_color
-        self.text = text
-        self.text_color = text_color
-        self.font = font 
-        self.method = method
-        self.activate_on_press = activate_on_press
-        self._latch = latch
-        self._pressed = False
-        self.lock_while_playing = lock_while_playing
-        self._active = True
-
-    @property
-    def pressed(self) -> bool:
-        return self._pressed
-    
-    def press(self) -> None:
-        if not self._active:
-            return
-        self._pressed = True
-        if self.activate_on_press and self.method is not None:
-            self.method()
-
-    def release(self) -> None:
-        if not self._active:
-            return
-        if not self._latch:
-            self._pressed = False
-
-    def flip_active(self) -> None:
-        self._active = not self._active
-
-    def run_method(self) -> None:
-        if not self._active:
-            return
-        if self.method is not None:
-            self.method()
-
-    def update(self, x: Optional[int] = None, y: Optional[int] = None, w: Optional[int] = None, h: Optional[int] = None) -> None:
-        if x is not None:
-            self.rect.x = x
-        if y is not None:
-            self.rect.y = y
-        if w is not None:
-            self.rect.width = w
-        if h is not None:
-            self.rect.height = h
-    
-    def draw(self) -> None:
-        if not self._active:
-            color = self.deactivated_color
-        else:
-            color = self.pressed_color if self._pressed else self.bg_color
-        pygame.draw.rect(self.screen, color, self.rect)
-        if self.text is not None:
-            text_surf = self.font.render(self.text, True, self.text_color)
-            text_rect = text_surf.get_rect(center=self.rect.center)
-            self.screen.blit(text_surf, text_rect)
-
-    def collide(self, mouse_pos: Tuple[int, int]) -> bool:
-        return self.rect.collidepoint(mouse_pos)
-    
 class Life:
     def __init__(self):
         self.caption: str = "Conway's Game of Life"
@@ -147,6 +61,7 @@ class Life:
         self.image_grid_height: int = 0
         self.bw_image_preview: Optional[pygame.Surface] = None
         self.image_grid_preview_scale: float = 1.0
+        self.image_grid_brightness_scale: float = 1.0
 
         self._slider_pressed: bool = False
         self._slider_pos: Optional[int] = None
@@ -281,11 +196,38 @@ class Life:
             width=BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
-            text="Apply Preview",
+            text="Apply Scale",
             method=self._resize_image_to_grid
         )
+
+        self.buttons["grid_preview_minus_brightness"] = Button(
+            position=(self._panel_x + 15, 190),
+            width=SMALL_BUTTON_WIDTH,
+            screen=self.screen,
+            screen_name="image_panel",
+            text="-",
+            method=lambda: self._adjust_grid_preview_brightness(-0.05)
+        )
+        self.buttons["grid_preview_plus_brightness"] = Button(
+            position=(self._panel_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 190),
+            width=SMALL_BUTTON_WIDTH,
+            screen=self.screen,
+            screen_name="image_panel",
+            text="+",
+            method=lambda: self._adjust_grid_preview_brightness(0.05)
+        )
+
+        self.buttons["apply_image_grid_brightness"] = Button(
+            position=(button_x, 260),
+            width=BUTTON_WIDTH,
+            screen=self.screen,
+            screen_name="image_panel",
+            text="Apply Brightness",
+            method=self._apply_image_grid_brightness
+        )
+
         self.buttons["apply_image_grid"] = Button(
-            position=(button_x, 190),
+            position=(button_x, 320),
             width=BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -330,32 +272,6 @@ class Life:
     def _draw_bounded_text(self, bounded_text_surf: pygame.Surface, rect: pygame.Rect) -> None:
         self.screen.blit(bounded_text_surf, (rect.centerx - bounded_text_surf.get_width() // 2,
                                              rect.centery - bounded_text_surf.get_height() // 2))
-
-    def _draw_button(self, 
-                     rect: pygame.Rect, 
-                     position_size: Tuple[int, int], 
-                     bg_color: Tuple[int, int, int], 
-                     text: Optional[str] = None,  
-                     text_color: Tuple[int, int, int] = (220, 220, 220),
-                     justify_x: str = 'c'
-        ) -> None:
-        x, y = position_size
-
-        if justify_x == 'c':
-            x_0 = x - rect.width // 2
-        elif justify_x == 'l':
-            x_0 = x
-        elif justify_x == 'r':
-            x_0 = x - rect.width
-        else:
-            raise ValueError("justify_x must be 'c', 'l', or 'r'")
-
-        rect.topleft = (x_0, y)
-
-        pygame.draw.rect(self.screen, bg_color, rect)
-        if text is not None:
-            text_surf = self.font_sm.render(text, True, text_color)
-            self._draw_bounded_text(text_surf, rect)
 
     def _determine_point_in_circle(self, point: tuple[float], center: tuple[float], radius: float) -> bool:
         """ 
@@ -421,7 +337,7 @@ class Life:
         else:
             target_h = h*.75
             target_w = target_h * ratio
-        gap = (w - PANEL_WIDTH - target_w*2) / 3
+        gap = (w - target_w*2) / 3
         original_img_x = gap
         original_img_y = (h - target_h) / 2
         bw_img_x = original_img_x + target_w + gap
@@ -450,9 +366,14 @@ class Life:
         gap = (PANEL_WIDTH - SMALL_BUTTON_WIDTH*2) / 3
 
         # draw label for grid preview size adjustment
-        preview_scale_text = f"Grid Preview Scale: {int(self.image_grid_preview_scale*100)}%"
+        preview_scale_text = f"Scale: {int(self.image_grid_preview_scale*100)}%"
         preview_scale_surf = self.font_sm.render(preview_scale_text, True, (220, 220, 220))
         self._draw_bounded_text(preview_scale_surf, pygame.Rect(self._panel_x, 110, PANEL_WIDTH, 20))
+
+        # draw label for grid preview brightness adjustment
+        preview_brightness_text = f"Brightness: {int(self.image_grid_brightness_scale*100)}%"
+        preview_brightness_surf = self.font_sm.render(preview_brightness_text, True, (220, 220, 220))
+        self._draw_bounded_text(preview_brightness_surf, pygame.Rect(self._panel_x, 230, PANEL_WIDTH, 20))
 
     def _draw_main_panel(self) -> None:
         px = self._panel_x
@@ -475,14 +396,6 @@ class Life:
         # grid type controls (bounded or toroidal)
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 260), (px + PANEL_WIDTH - 10, 260), 1)
         self.screen.blit(self.font_sm.render("Grid Type", True, (160, 160, 160)), (px + 10, 275))
-        # self._bounded_rect = pygame.Rect(px + 15, 310, 80, 30)
-        # self._toroidal_rect = pygame.Rect(px + 105, 310, 80, 30)
-        # pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Bounded else settings.BTN_BG, self._bounded_rect)
-        # pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Toroidal else settings.BTN_BG, self._toroidal_rect)
-        # bounded_surf = self.font_sm.render("Bounded", True, settings.TXT_COL)
-        # toroidal_surf = self.font_sm.render("Toroidal", True, settings.TXT_COL)
-        # self._draw_bounded_text(bounded_surf, self._bounded_rect)
-        # self._draw_bounded_text(toroidal_surf, self._toroidal_rect)
 
         # Save and Load buttons
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 360), (px + PANEL_WIDTH - 10, 360), 1)
@@ -565,6 +478,26 @@ class Life:
             self.grid.resize(self.image_grid_width, self.image_grid_height, self.image_grid_values)
             self._calculate_cell_size()
             self.show_image_to_grid_panel = False
+
+    def _adjust_grid_preview_brightness(self, delta: float) -> None:
+        if self.bw_image_preview is None:
+            return
+        new_scale = self.image_grid_brightness_scale + delta
+        # normalize to multiple of 0.05 for easier use
+        new_scale = round(new_scale / 0.05) * 0.05
+        if 0.1 <= new_scale <= 2.0:
+            self.image_grid_brightness_scale = new_scale
+
+    def _apply_image_grid_brightness(self) -> None:
+        if self.image is None:
+            return
+        threshold = int(128 / self.image_grid_brightness_scale)  # adjust threshold based on brightness scale
+        self.image_grid_values, self.bw_image_preview = image_to_grid(
+            self.image, 
+            self.image_grid_width, 
+            self.image_grid_height, 
+            threshold=threshold
+       )
 
     def _sync_grid_type_buttons(self) -> None:
         bounded_button = self.buttons.get("bounded")
