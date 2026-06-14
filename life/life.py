@@ -98,7 +98,10 @@ class Button:
             self.rect.height = h
     
     def draw(self) -> None:
-        color = self.pressed_color if self._pressed else self.bg_color
+        if not self._active:
+            color = self.deactivated_color
+        else:
+            color = self.pressed_color if self._pressed else self.bg_color
         pygame.draw.rect(self.screen, color, self.rect)
         if self.text is not None:
             text_surf = self.font.render(self.text, True, self.text_color)
@@ -107,6 +110,7 @@ class Button:
 
     def collide(self, mouse_pos: Tuple[int, int]) -> bool:
         return self.rect.collidepoint(mouse_pos)
+    
 class Life:
     def __init__(self):
         self.caption: str = "Conway's Game of Life"
@@ -131,20 +135,9 @@ class Life:
         self.font_lg = pygame.font.SysFont(None, 32)
         self._pending_width: int = self.grid.size[0]
         self._pending_height: int = self.grid.size[1]
-        self._w_minus_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._w_plus_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._h_minus_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._h_plus_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._resize_rect = pygame.Rect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._bounded_rect = pygame.Rect(0, 0, MED_BUTTON_WIDTH, BUTTON_HEIGHT)
         self._toroidal_rect = pygame.Rect(0, 0, MED_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._save_rect = pygame.Rect(0, 0, MED_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._load_rect = pygame.Rect(0, 0, MED_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._close_image_panel_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
 
         # image to grid 
-        image_grid_width = self.screen.get_width() - PANEL_WIDTH 
-        image_grid_height = self.screen.get_height() - PANEL_WIDTH
         self.show_image_to_grid_panel: bool = False
         self.image: Optional[pygame.Surface] = None
         self.image_grid_values: Optional[List[bool]] = None
@@ -153,11 +146,7 @@ class Life:
         self.image_grid_width: int = 0
         self.image_grid_height: int = 0
         self.bw_image_preview: Optional[pygame.Surface] = None
-        self._grid_preview_minus_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._grid_preview_plus_rect = pygame.Rect(0, 0, SMALL_BUTTON_WIDTH, BUTTON_HEIGHT)
         self.image_grid_preview_scale: float = 1.0
-        self._apply_image_scale_rect = pygame.Rect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT)
-        self._apply_image_grid_rect = pygame.Rect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT)
 
         self._slider_pressed: bool = False
         self._slider_pos: Optional[int] = None
@@ -263,7 +252,7 @@ class Life:
         )
 
         self.buttons["close_image_panel"] = Button(
-            position=(button_x, 25),
+            position=(self._panel_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 25),
             width=SMALL_BUTTON_WIDTH,
             bg_color=(200, 50, 50),
             screen=self.screen,
@@ -272,7 +261,7 @@ class Life:
             method=lambda: setattr(self, 'show_image_to_grid_panel', False)
         )
         self.buttons["grid_preview_minus"] = Button(
-            position=(button_x, 75),
+            position=(self._panel_x + 15, 75),
             width=SMALL_BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -280,7 +269,7 @@ class Life:
             method=lambda: self._adjust_grid_preview_scale(-0.05)
         )
         self.buttons["grid_preview_plus"] = Button(
-            position=(button_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 5, 75),
+            position=(self._panel_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 75),
             width=SMALL_BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -486,14 +475,14 @@ class Life:
         # grid type controls (bounded or toroidal)
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 260), (px + PANEL_WIDTH - 10, 260), 1)
         self.screen.blit(self.font_sm.render("Grid Type", True, (160, 160, 160)), (px + 10, 275))
-        self._bounded_rect = pygame.Rect(px + 15, 310, 80, 30)
-        self._toroidal_rect = pygame.Rect(px + 105, 310, 80, 30)
-        pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Bounded else settings.BTN_BG, self._bounded_rect)
-        pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Toroidal else settings.BTN_BG, self._toroidal_rect)
-        bounded_surf = self.font_sm.render("Bounded", True, settings.TXT_COL)
-        toroidal_surf = self.font_sm.render("Toroidal", True, settings.TXT_COL)
-        self._draw_bounded_text(bounded_surf, self._bounded_rect)
-        self._draw_bounded_text(toroidal_surf, self._toroidal_rect)
+        # self._bounded_rect = pygame.Rect(px + 15, 310, 80, 30)
+        # self._toroidal_rect = pygame.Rect(px + 105, 310, 80, 30)
+        # pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Bounded else settings.BTN_BG, self._bounded_rect)
+        # pygame.draw.rect(self.screen, settings.SELECTED_BG if self.grid.type == GridType.Toroidal else settings.BTN_BG, self._toroidal_rect)
+        # bounded_surf = self.font_sm.render("Bounded", True, settings.TXT_COL)
+        # toroidal_surf = self.font_sm.render("Toroidal", True, settings.TXT_COL)
+        # self._draw_bounded_text(bounded_surf, self._bounded_rect)
+        # self._draw_bounded_text(toroidal_surf, self._toroidal_rect)
 
         # Save and Load buttons
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 360), (px + PANEL_WIDTH - 10, 360), 1)
@@ -600,9 +589,9 @@ class Life:
         self.grid.resize(self._pending_width, self._pending_height)
         self._calculate_cell_size()
 
-    def _flip_buttons_active_state(self, active: bool) -> None:
+    def _flip_buttons_active_state(self) -> None:
         for button in self.buttons.values():
-            button.flip_active_state()
+            button.flip_active()
 
     def event_loop(self) -> None:
         for event in pygame.event.get():
@@ -614,8 +603,11 @@ class Life:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.playing = not self.playing
+                    if self.playing and self.grid.generation == 0:
+                        self._flip_buttons_active_state()
                 elif event.key == pygame.K_r and not self.playing:
                     self.grid.reset()
+                    self._flip_buttons_active_state()
                 elif event.key == pygame.K_l:
                     self._show_grid_lines = not self._show_grid_lines
             elif pygame.mouse.get_pressed()[0]:
@@ -660,7 +652,7 @@ class Life:
         while True: # main game loop
             self.screen.fill(settings.BACKGROUND_COLOR)
             self.event_loop()
-            
+
             if not self.show_image_to_grid_panel:
                 self.draw_grid()
             self.draw_panel()
@@ -672,8 +664,6 @@ class Life:
                 if current_time - self.last_generation_time >= self.seconds_per_generation:
                     self.grid.iterate_generation()
                     self.last_generation_time = current_time
-
-
 
             self.draw_buttons()
             pygame.display.flip()
