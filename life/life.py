@@ -549,19 +549,25 @@ class Life:
                 mouse_pos = pygame.mouse.get_pos()
                 mouse_x, mouse_y = mouse_pos
 
-                for button_name, button in self.buttons.items():
-                    if self.show_image_to_grid_panel and button.screen_name != "image_panel":
-                        continue
-                    elif not self.show_image_to_grid_panel and button.screen_name != "main":
-                        continue
-                    
-                    if button.lock_while_playing and lock_elements:
-                        continue
+                if mouse_x < self._panel_x:  # only allow interaction with grid if clicking to the left of the panel
+                    grid_x = (mouse_x - self.padding_x) // self.cell_size
+                    grid_y = (mouse_y - self.padding_y) // self.cell_size
+                    if 0 <= grid_x < self.grid.size[0] and 0 <= grid_y < self.grid.size[1]:
+                        self.grid.flip_cell(grid_x, grid_y)
+                else:
+                    for button_name, button in self.buttons.items():
+                        if self.show_image_to_grid_panel and button.screen_name != "image_panel":
+                            continue
+                        elif not self.show_image_to_grid_panel and button.screen_name != "main":
+                            continue
+                        
+                        if button.lock_while_playing and lock_elements:
+                            continue
 
-                    if button.collide(mouse_pos):
-                        button.press()
-                        self.selected_button = button_name
-                        break  # only allow one button press per click
+                        if button.collide(mouse_pos):
+                            button.press()
+                            self.selected_button = button_name
+                            break  # only allow one button press per click
 
                 if self._slider_pressed:
                     self._update_slider_position(mouse_x)
