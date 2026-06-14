@@ -28,6 +28,7 @@ USER_SAVE_FOLDER = "user_grids"
 # object colors
 BTN_BG = (85, 85, 85)       # button background color
 SELECTED_BG = (55, 110, 55) # background color when button is selected
+DEACTIVATED_BG = (65, 65, 65) # background color when button is deactivated
 TXT_COL = (220, 220, 220)   # text color for buttons and labels in the control panel
 
 
