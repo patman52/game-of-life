@@ -1,3 +1,8 @@
+"""
+Helper functions to convert images to grid data for Conway's Game of Life.
+
+Author: P Tunis
+"""
 
 from typing import List, Tuple
 

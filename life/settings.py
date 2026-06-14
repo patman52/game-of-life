@@ -1,6 +1,8 @@
 
+"""
+Settings and constants for the Game of Life application.
 
-
+"""
 
 BACKGROUND_COLOR = (0, 20, 30)
 

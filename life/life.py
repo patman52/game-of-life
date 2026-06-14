@@ -1,3 +1,10 @@
+"""
+Conway's Game of Life implemented in Python using Pygame. 
+
+Author P Tunis
+"""
+
+
 import time
 from math import sqrt
 from typing import List, Optional, Tuple

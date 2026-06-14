@@ -1,3 +1,9 @@
+"""
+Helper for loading and saving files in the Game of Life application via a tkinter file dialog.
+
+Author: P Tunis
+"""
+
 
 import tkinter as tk
 from tkinter import filedialog

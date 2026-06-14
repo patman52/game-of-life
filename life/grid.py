@@ -1,4 +1,8 @@
+"""
+Grid management for Conway's Game of Life.
 
+Author: P Tunis
+"""
 
 import os
 import pickle
