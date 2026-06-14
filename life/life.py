@@ -1,4 +1,5 @@
 import time
+from math import sqrt
 from typing import List, Optional, Tuple
 
 import pygame
@@ -14,7 +15,8 @@ SMALL_BUTTON_WIDTH = 30
 BUTTON_HEIGHT = 30
 BUTTON_WIDTH = 160
 MED_BUTTON_WIDTH = 80
-
+MIN_GEN_SECONDS = 0.1
+MAX_GEN_SECONDS = 1.0
 
 class Life:
     def __init__(self):
@@ -62,6 +64,11 @@ class Life:
         self.image_grid_preview_scale: float = 1.0
         self._apply_image_scale_rect = pygame.Rect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT)
         self._apply_image_grid_rect = pygame.Rect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT)
+
+        self._slider_pressed: bool = False
+        self._slider_pos: Optional[int] = None
+        self._slider_rect: pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self._slider_radius: int = 8
 
         self.playing: bool = False
         self.cell_size: int = 0
@@ -203,6 +210,48 @@ class Life:
             text_surf = self.font_sm.render(text, True, text_color)
             self._draw_bounded_text(text_surf, rect)
 
+    def _determine_point_in_circle(self, point: tuple[float], center: tuple[float], radius: float) -> bool:
+        """ 
+        finding if a point is in a circle
+        (x - center_x)² + (y - center_y)² < radius².
+        """
+        return sqrt((point[0] - center[0])**2 + (point[1] - center[1])**2) < radius
+
+    def _determine_mouse_over_slider(self, mouse_pos: Tuple[int, int]) -> bool:
+        return self._determine_point_in_circle(mouse_pos, (self._slider_pos, self._slider_rect.centery), self._slider_radius)
+
+    def _calculate_slider_ratio(self, new_position: Optional[int] = None) -> float:
+        if new_position is not None:
+            self._slider_pos = new_position
+            # calculate ratio based on slider position
+            ratio = (self._slider_pos - self._slider_rect.left) / self._slider_rect.width
+            # convert ratio to seconds per generation
+            self.seconds_per_generation = MIN_GEN_SECONDS + ratio * (MAX_GEN_SECONDS - MIN_GEN_SECONDS)     
+        else:
+            ratio = (self.seconds_per_generation - MIN_GEN_SECONDS) / (MAX_GEN_SECONDS - MIN_GEN_SECONDS)
+        return ratio
+
+    def _update_slider_position(self, mouse_x: int) -> None:
+        self._slider_pos = max(self._slider_rect.left, min(mouse_x, self._slider_rect.right))
+        self._calculate_slider_ratio(new_position=self._slider_pos)
+
+    def _draw_slider(self) -> None:
+        px = self._grid_area_width()
+        ratio = self._calculate_slider_ratio()
+        # draw label Generation Speed above the slider
+        label_surf = self.font_sm.render("Generation Speed", True, (220, 220, 220))
+        self._draw_bounded_text(label_surf, pygame.Rect(px, 570 - 30, PANEL_WIDTH, 20))
+
+        self._slider_pos = int(px + 15 + ratio * (PANEL_WIDTH - 30))
+        self._slider_rect = pygame.Rect(px + 15, 570, PANEL_WIDTH - 30, 10)
+        pygame.draw.rect(self.screen, (100, 100, 100), self._slider_rect)
+        pygame.draw.circle(self.screen, (200, 50, 50), (self._slider_pos, self._slider_rect.centery), self._slider_radius)
+
+        # draw label for slider
+        slider_label = f"{self.seconds_per_generation:.1f} seconds/generation"
+        slider_label_surf = self.font_sm.render(slider_label, True, (220, 220, 220))
+        self._draw_bounded_text(slider_label_surf, pygame.Rect(px, 570 + 10 + 5, PANEL_WIDTH, 20))
+
     def draw_panel(self) -> None:
         px = self._grid_area_width()
         pygame.draw.rect(self.screen, (45, 45, 45), pygame.Rect(px, 0, PANEL_WIDTH, self.screen.get_height()))
@@ -260,8 +309,11 @@ class Life:
         # draw help text at the bottom
         help_text = "Space: Play/Pause | R: Reset | L: Toggle Grid Lines"
         help_surf = self.font_sm.render(help_text, True, (160, 160, 160))
-        self._draw_bounded_text(help_surf, pygame.Rect(px/2-PANEL_WIDTH, self.screen.get_height() - 30, PANEL_WIDTH, 20))
+        self._draw_bounded_text(help_surf, pygame.Rect(px/2-PANEL_WIDTH, self.screen.get_height() - 30, px, 20))
         
+        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 525), (px + PANEL_WIDTH - 10, 525), 1)
+        self._draw_slider()
+
     def _save_grid_to_file(self) -> None:
         file_path = choose_file_save_path()
         if file_path:
@@ -324,34 +376,36 @@ class Life:
                 elif event.key == pygame.K_l:
                     self._show_grid_lines = not self._show_grid_lines
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self.playing or self.grid.generation > 0:
-                    return
+                # lock certain UI elements while playing or if the grid has been iterated at least once
+                lock_elements = self.playing or self.grid.generation > 0
                 mouse_pos = pygame.mouse.get_pos()
                 mouse_x, mouse_y = mouse_pos
                 if not self.show_image_to_grid_panel:
                     if mouse_x >= self._grid_area_width():
-                        if self._w_minus_rect.collidepoint(mouse_pos):
+                        if self._w_minus_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._pending_width = max(1, self._pending_width - 1)
-                        elif self._w_plus_rect.collidepoint(mouse_pos):
+                        elif self._w_plus_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._pending_width = min(settings.MAX_GRID_SIZE, self._pending_width + 1)
-                        elif self._h_minus_rect.collidepoint(mouse_pos):
+                        elif self._h_minus_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._pending_height = max(1, self._pending_height - 1)
-                        elif self._h_plus_rect.collidepoint(mouse_pos):
+                        elif self._h_plus_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._pending_height = min(settings.MAX_GRID_SIZE, self._pending_height + 1)
-                        elif self._resize_rect.collidepoint(mouse_pos):
+                        elif self._resize_rect.collidepoint(mouse_pos) and not lock_elements:
                             self.grid.resize(self._pending_width, self._pending_height)
                             self._calculate_cell_size()
-                        elif self._bounded_rect.collidepoint(mouse_pos):
+                        elif self._bounded_rect.collidepoint(mouse_pos) and not lock_elements:
                             self.grid.type = GridType.Bounded
-                        elif self._toroidal_rect.collidepoint(mouse_pos):
+                        elif self._toroidal_rect.collidepoint(mouse_pos) and not lock_elements:
                             self.grid.type = GridType.Toroidal
-                        elif self._save_rect.collidepoint(mouse_pos):
+                        elif self._save_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._save_grid_to_file()
-                        elif self._load_rect.collidepoint(mouse_pos):
+                        elif self._load_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._load_grid_from_file()
-                        elif self._image_to_grid_rect.collidepoint(mouse_pos):
+                        elif self._image_to_grid_rect.collidepoint(mouse_pos) and not lock_elements:
                             self._load_image_to_grid()
-
+                        # allow for dragging the slider to adjust generation speed, even while playing
+                        elif not self._slider_pressed and self._determine_mouse_over_slider(mouse_pos):
+                            self._slider_pressed = True
                     else:
                         grid_x = (mouse_x - self.padding_x) // self.cell_size
                         grid_y = (mouse_y - self.padding_y) // self.cell_size
@@ -375,6 +429,13 @@ class Life:
                             self.grid.resize(self.image_grid_width, self.image_grid_height, self.image_grid_values)
                             self._calculate_cell_size()
                             self.show_image_to_grid_panel = False
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if self._slider_pressed:
+                    self._slider_pressed = False
+
+            if self._slider_pressed and pygame.mouse.get_pressed()[0]:  # if left mouse button is still held down
+                mouse_x, _ = pygame.mouse.get_pos()
+                self._update_slider_position(mouse_x)
 
     def main(self) -> None:
         self.last_generation_time = time.time()
