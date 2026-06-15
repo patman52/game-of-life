@@ -29,7 +29,10 @@ class Button:
                  lock_while_playing: bool = True,
                  border_radius: int = 5
         ):
-        self.rect: pygame.Rect = pygame.Rect(position, (width, height))
+        self.rect: pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.position: Tuple[int, int] = position
+        self.width: int = width
+        self.height: int = height
         self.screen: pygame.Surface = screen
         self.screen_name: str = screen_name
         self.bg_color: Tuple[int, int, int] = bg_color
@@ -79,14 +82,23 @@ class Button:
             self.rect.y = y
         if w is not None:
             self.rect.width = w
+            self.width = w
         if h is not None:
             self.rect.height = h
+            self.height = h
     
     def draw(self) -> None:
         if not self._active:
             color = self.deactivated_color
         else:
             color = self.pressed_color if self._pressed else self.bg_color
+
+        self.rect = pygame.Rect(
+            settings.BASE_PANEL_POS[0] + self.position[0], 
+            settings.BASE_PANEL_POS[1] + self.position[1], 
+            self.width, 
+            self.height
+            )
         pygame.draw.rect(self.screen, color, self.rect, border_radius=self.border_radius)
         if self.text is not None:
             text_surf = self.font.render(self.text, True, self.text_color)

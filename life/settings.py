@@ -31,6 +31,8 @@ SELECTED_BG = (55, 110, 55) # background color when button is selected
 DEACTIVATED_BG = (65, 65, 65) # background color when button is deactivated
 TXT_COL = (220, 220, 220)   # text color for buttons and labels in the control panel
 
+FPS = 24
+BASE_PANEL_POS = [0, 0]
 
 __all__ = [
     "BACKGROUND_COLOR",
@@ -40,5 +42,7 @@ __all__ = [
     "USER_SAVE_FOLDER",
     "BTN_BG",
     "SELECTED_BG",
-    "TXT_COL",  
+    "TXT_COL",
+    "FPS",
+    "BASE_PANEL_POS",
 ]

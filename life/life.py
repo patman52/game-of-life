@@ -27,8 +27,8 @@ MAX_GEN_SECONDS = 1.0
 
 class Life:
     def __init__(self):
-        self.caption: str = "Conway's Game of Life"
-        self.fps: int = 24
+        pygame.display.set_caption("Conway's Game of Life")
+        self.fps: int = settings.FPS
         self.seconds_per_generation: float = 0.5
         self.last_generation_time: float = 0.0
         self.clock = pygame.time.Clock()
@@ -40,7 +40,7 @@ class Life:
                                                                self.screen_size[1]*MAX_SCREEN_RATIO),
                                                               pygame.RESIZABLE)
 
-        self._panel_x = self.screen.get_width() - PANEL_WIDTH
+        settings.BASE_PANEL_POS[0] = self.screen.get_width() - PANEL_WIDTH
 
         self.buttons: Dict[str, Button] = {}
         self.selected_button: Optional[str] = None
@@ -49,7 +49,6 @@ class Life:
         self.font_lg = pygame.font.SysFont(None, 32)
         self._pending_width: int = self.grid.size[0]
         self._pending_height: int = self.grid.size[1]
-        self._toroidal_rect = pygame.Rect(0, 0, MED_BUTTON_WIDTH, BUTTON_HEIGHT)
 
         # image to grid 
         self.show_image_to_grid_panel: bool = False
@@ -78,9 +77,9 @@ class Life:
 
     def _setup_buttons(self) -> None:
 
-        button_x = self._panel_x + (PANEL_WIDTH - BUTTON_WIDTH)/2
-        small_button_x_left = self._panel_x + 45
-        small_button_x_right = self._panel_x + 120
+        button_x = (PANEL_WIDTH - BUTTON_WIDTH)/2
+        small_button_x_left = 45
+        small_button_x_right = 120
 
         self.buttons["w_minus"] = Button(
             position=(small_button_x_left, 124),
@@ -167,7 +166,7 @@ class Life:
         )
 
         self.buttons["close_image_panel"] = Button(
-            position=(self._panel_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 25),
+            position=(PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 25),
             width=SMALL_BUTTON_WIDTH,
             bg_color=(200, 50, 50),
             screen=self.screen,
@@ -176,7 +175,7 @@ class Life:
             method=lambda: setattr(self, 'show_image_to_grid_panel', False)
         )
         self.buttons["grid_preview_minus"] = Button(
-            position=(self._panel_x + 15, 75),
+            position=(15, 75),
             width=SMALL_BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -184,7 +183,7 @@ class Life:
             method=lambda: self._adjust_grid_preview_scale(-0.05)
         )
         self.buttons["grid_preview_plus"] = Button(
-            position=(self._panel_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 75),
+            position=(PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 75),
             width=SMALL_BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -201,7 +200,7 @@ class Life:
         )
 
         self.buttons["grid_preview_minus_brightness"] = Button(
-            position=(self._panel_x + 15, 190),
+            position=(15, 190),
             width=SMALL_BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -209,7 +208,7 @@ class Life:
             method=lambda: self._adjust_grid_preview_brightness(-0.05)
         )
         self.buttons["grid_preview_plus_brightness"] = Button(
-            position=(self._panel_x + PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 190),
+            position=(PANEL_WIDTH - SMALL_BUTTON_WIDTH - 15, 190),
             width=SMALL_BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -239,16 +238,17 @@ class Life:
         return self.screen.get_width() - PANEL_WIDTH
 
     def _calculate_cell_size(self) -> None:
+        min_y_padding = 30
         grid_width, grid_height = self.grid.size
         grid_area_width = self._grid_area_width()
-        grid_area_height = self.screen.get_height()
+        grid_area_height = self.screen.get_height() - min_y_padding
         # Divide by (n + 1) so the leftover space is always >= one full cell,
         # i.e. >= half a cell of padding on each side.
         self.cell_size = min(grid_area_width // (grid_width + 1),
                              grid_area_height // (grid_height + 1))
         # Center the grid within the available area.
         self.padding_x = (grid_area_width - self.cell_size * grid_width) // 2
-        self.padding_y = (grid_area_height - self.cell_size * grid_height) // 2
+        self.padding_y = (grid_area_height - self.cell_size * grid_height) // 2 + min_y_padding // 2
 
     def draw_grid(self) -> None:
         for y in range(self.grid.size[1]):
@@ -258,7 +258,6 @@ class Life:
                 rect = pygame.Rect(x * self.cell_size + self.padding_x, y * self.cell_size + self.padding_y, 
                                    self.cell_size, self.cell_size)
                 pygame.draw.rect(self.screen, color, rect)
-                # if the size of the grid is small enough, draw a border around each cell
                 if self._show_grid_lines:
                     pygame.draw.rect(self.screen, (25, 25, 25), rect, 1)
 
@@ -299,7 +298,7 @@ class Life:
         self._calculate_slider_ratio(new_position=self._slider_pos)
 
     def _draw_slider(self) -> None:
-        px = self._panel_x
+        px = settings.BASE_PANEL_POS[0]
         ratio = self._calculate_slider_ratio()
         # draw label Generation Speed above the slider
         label_surf = self.font_sm.render("Generation Speed", True, (220, 220, 220))
@@ -368,15 +367,16 @@ class Life:
         # draw label for grid preview size adjustment
         preview_scale_text = f"Scale: {int(self.image_grid_preview_scale*100)}%"
         preview_scale_surf = self.font_sm.render(preview_scale_text, True, (220, 220, 220))
-        self._draw_bounded_text(preview_scale_surf, pygame.Rect(self._panel_x, 110, PANEL_WIDTH, 20))
+        self._draw_bounded_text(preview_scale_surf, pygame.Rect(settings.BASE_PANEL_POS[0], 110, PANEL_WIDTH, 20))
 
         # draw label for grid preview brightness adjustment
         preview_brightness_text = f"Brightness: {int(self.image_grid_brightness_scale*100)}%"
         preview_brightness_surf = self.font_sm.render(preview_brightness_text, True, (220, 220, 220))
-        self._draw_bounded_text(preview_brightness_surf, pygame.Rect(self._panel_x, 230, PANEL_WIDTH, 20))
+        self._draw_bounded_text(preview_brightness_surf, pygame.Rect(settings.BASE_PANEL_POS[0], 230, PANEL_WIDTH, 20))
 
     def _draw_main_panel(self) -> None:
-        px = self._panel_x
+        settings.BASE_PANEL_POS = (self.screen.get_width() - PANEL_WIDTH, 0)
+        px = settings.BASE_PANEL_POS[0]
         # Generation counter
         self.screen.blit(self.font_sm.render("Generation", True, (160, 160, 160)), (px + 10, 15))
         self.screen.blit(self.font_lg.render(str(self.grid.generation), True, (220, 210, 70)), (px + 10, 40))
@@ -408,14 +408,14 @@ class Life:
         # draw help text at the bottom
         help_text = "Space: Play/Pause | R: Reset | L: Toggle Grid Lines"
         help_surf = self.font_sm.render(help_text, True, (160, 160, 160))
-        self._draw_bounded_text(help_surf, pygame.Rect(px/2-PANEL_WIDTH, self.screen.get_height() - 30, px, 20))
+        self._draw_bounded_text(help_surf, pygame.Rect(settings.BASE_PANEL_POS[0]/2-PANEL_WIDTH, self.screen.get_height() - 25, settings.BASE_PANEL_POS[0], 20))
         
         pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 525), (px + PANEL_WIDTH - 10, 525), 1)
         self._draw_slider()
 
     def draw_panel(self) -> None:
-        pygame.draw.rect(self.screen, (45, 45, 45), pygame.Rect(self._panel_x, 0, PANEL_WIDTH, self.screen.get_height()))
-        pygame.draw.line(self.screen, (90, 90, 90), (self._panel_x, 0), (self._panel_x, self.screen.get_height()), 2)
+        pygame.draw.rect(self.screen, (45, 45, 45), pygame.Rect(settings.BASE_PANEL_POS[0], 0, PANEL_WIDTH, self.screen.get_height()))
+        pygame.draw.line(self.screen, (90, 90, 90), (settings.BASE_PANEL_POS[0], 0), (settings.BASE_PANEL_POS[0], self.screen.get_height()), 2)
 
         if not self.show_image_to_grid_panel:
             self._draw_main_panel()
@@ -478,6 +478,11 @@ class Life:
             self.grid.resize(self.image_grid_width, self.image_grid_height, self.image_grid_values)
             self._calculate_cell_size()
             self.show_image_to_grid_panel = False
+            self._image_grid_values = None
+            self._bw_image_preview = None
+            self.image = None
+            self.image_grid_preview_scale: float = 1.0
+            self.image_grid_brightness_scale: float = 1.0
 
     def _adjust_grid_preview_brightness(self, delta: float) -> None:
         if self.bw_image_preview is None:
@@ -549,7 +554,7 @@ class Life:
                 mouse_pos = pygame.mouse.get_pos()
                 mouse_x, mouse_y = mouse_pos
 
-                if mouse_x < self._panel_x:  # only allow interaction with grid if clicking to the left of the panel
+                if mouse_x < settings.BASE_PANEL_POS[0]:  # only allow interaction with grid if clicking to the left of the panel
                     grid_x = (mouse_x - self.padding_x) // self.cell_size
                     grid_y = (mouse_y - self.padding_y) // self.cell_size
                     if 0 <= grid_x < self.grid.size[0] and 0 <= grid_y < self.grid.size[1]:
