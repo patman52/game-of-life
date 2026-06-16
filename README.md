@@ -1,7 +1,7 @@
 # game-of-life
 Conway's Game of Life made via pygame
 
-https://github.com/user-attachments/assets/072cb932-ad3b-44fe-a113-2d669bda016a
+https://github.com/user-attachments/assets/39b9c625-024a-4b83-b0e3-2ea60e870bfa
 
 ## Getting Started
 
@@ -34,7 +34,7 @@ To launch the game, simply run `python main.py`
 ## Play the Game
 
 ### Basic Key Commands:
-- **p**: starts/pauses the game
+- **space**: starts/pauses the game
 - **l**: turns on and off the grind lines between cells
 - **r**: resets the grid to the initial starting point. Play must be paused.
 
