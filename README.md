@@ -45,7 +45,7 @@ Click on sets to 'flip' them from dead to alive and vice versa.
 
 ### Grid Types
 - **Bounded**: The grid is bounded around the edges and only cells directly adjacent to each other factor into cell generation 'life' status.
-- ** Toroidal**: The right-left / upper-lower boundaries of the grid are 'stitched' together, meaning cells on opposite edges affect generation 'life' status.
+- **Toroidal**: The right-left / upper-lower boundaries of the grid are 'stitched' together, meaning cells on opposite edges affect generation 'life' status.
 
 ### Saving / Loading Grids
 
