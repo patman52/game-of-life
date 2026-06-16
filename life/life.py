@@ -61,6 +61,7 @@ class Life:
         self.bw_image_preview: Optional[pygame.Surface] = None
         self.image_grid_preview_scale: float = 1.0
         self.image_grid_brightness_scale: float = 1.0
+        self._image_inverted: bool = False
 
         self._slider_pressed: bool = False
         self._slider_pos: Optional[int] = None
@@ -225,8 +226,17 @@ class Life:
             method=self._apply_image_grid_brightness
         )
 
-        self.buttons["apply_image_grid"] = Button(
+        self.buttons["invert_image"] = Button(
             position=(button_x, 320),
+            width=BUTTON_WIDTH,
+            screen=self.screen,
+            screen_name="image_panel",
+            text="Invert Image",
+            method=self._invert_image
+        )
+
+        self.buttons["apply_image_grid"] = Button(
+            position=(button_x, 380),
             width=BUTTON_WIDTH,
             screen=self.screen,
             screen_name="image_panel",
@@ -266,9 +276,12 @@ class Life:
             return
         self.image_grid_width = int(self.image_grid_original_width * self.image_grid_preview_scale)
         self.image_grid_height = int(self.image_grid_original_height * self.image_grid_preview_scale)
-        self.image_grid_values, self.bw_image_preview = image_to_grid(self.image, self.image_grid_width, self.image_grid_height)
+        self.image_grid_values, self.bw_image_preview = image_to_grid(
+            self.image, self.image_grid_width, self.image_grid_height, invert=self._image_inverted)
 
-    def _draw_bounded_text(self, bounded_text_surf: pygame.Surface, rect: pygame.Rect) -> None:
+    def _draw_bounded_text(self, text: str, color: Tuple[int, int, int], rect: pygame.Rect) -> None:
+        bounded_text_surf = self.font_sm.render(text, True, color)
+       
         self.screen.blit(bounded_text_surf, (rect.centerx - bounded_text_surf.get_width() // 2,
                                              rect.centery - bounded_text_surf.get_height() // 2))
 
@@ -301,8 +314,7 @@ class Life:
         px = settings.BASE_PANEL_POS[0]
         ratio = self._calculate_slider_ratio()
         # draw label Generation Speed above the slider
-        label_surf = self.font_sm.render("Generation Speed", True, (220, 220, 220))
-        self._draw_bounded_text(label_surf, pygame.Rect(px, 570 - 30, PANEL_WIDTH, 20))
+        self._draw_bounded_text("Generation Speed", (220, 220, 220), pygame.Rect(px, 570 - 30, PANEL_WIDTH, 20))
 
         self._slider_pos = int(px + 15 + ratio * (PANEL_WIDTH - 30))
         self._slider_rect = pygame.Rect(px + 15, 570, PANEL_WIDTH - 30, 10)
@@ -311,8 +323,7 @@ class Life:
 
         # draw label for slider
         slider_label = f"{self.seconds_per_generation:.1f} seconds/generation"
-        slider_label_surf = self.font_sm.render(slider_label, True, (220, 220, 220))
-        self._draw_bounded_text(slider_label_surf, pygame.Rect(px, 570 + 10 + 5, PANEL_WIDTH, 20))
+        self._draw_bounded_text(slider_label, (220, 220, 220), pygame.Rect(px, 570 + 10 + 5, PANEL_WIDTH, 20))
 
     def draw_buttons(self) -> None:
         for button in self.buttons.values(): 
@@ -323,7 +334,9 @@ class Life:
                 button.draw()
 
     def _draw_image_to_grid_panel(self) -> None:
-        # todo image alignment, exit button, resize button, apply button, etc.
+        """
+        Draw the image-to-grid panel, including the original image, the grid preview, and related controls.
+        """
         w = self.screen.get_width() - PANEL_WIDTH
         h = self.screen.get_height()
 
@@ -342,37 +355,36 @@ class Life:
         bw_img_x = original_img_x + target_w + gap
         bw_img_y = original_img_y
 
+        # draw the original and bw images
         self.screen.blit(pygame.transform.scale(self.image, (int(target_w), int(target_h))), (original_img_x, original_img_y))
         self.screen.blit(pygame.transform.scale(self.bw_image_preview, (int(target_w), int(target_h))), (bw_img_x, bw_img_y))
 
         # draw labels above the original and bw previews
-        original_surf = self.font_sm.render("Original", True, (220, 220, 220))
-        bw_surf = self.font_sm.render("Grid Preview", True, (220, 220, 220))
-        self._draw_bounded_text(original_surf, pygame.Rect(original_img_x, original_img_y - 30, target_w, 20))
-        self._draw_bounded_text(bw_surf, pygame.Rect(bw_img_x, bw_img_y - 30, target_w, 20))
+        self._draw_bounded_text("Original", (220, 220, 220), pygame.Rect(original_img_x, original_img_y - 30, target_w, 20))
+        self._draw_bounded_text("Grid Preview", (220, 220, 220), pygame.Rect(bw_img_x, bw_img_y - 30, target_w, 20))
 
         # draw the current image size underneath the original
         size_text = f"Current Image Size: {img_w} x {img_h}"
-        size_surf = self.font_sm.render(size_text, True, (220, 220, 220))
-        self._draw_bounded_text(size_surf, pygame.Rect(original_img_x, original_img_y + target_h + 10, target_w, 20))
+        self._draw_bounded_text(size_text, (220, 220, 220), pygame.Rect(original_img_x, original_img_y + target_h + 10, target_w, 20))
 
         # draw the grid preview size underneath the bw preview
         preview_size_text = f"Grid Preview Size: {self.image_grid_width} x {self.image_grid_height}"
-        preview_size_surf = self.font_sm.render(preview_size_text, True, (220, 220, 220))
-        self._draw_bounded_text(preview_size_surf, pygame.Rect(bw_img_x, bw_img_y + target_h + 10, target_w, 20))
+        self._draw_bounded_text(preview_size_text, (220, 220, 220), pygame.Rect(bw_img_x, bw_img_y + target_h + 10, target_w, 20))
 
         # draw a plus and minus button to adjust the grid preview % size
         gap = (PANEL_WIDTH - SMALL_BUTTON_WIDTH*2) / 3
 
         # draw label for grid preview size adjustment
         preview_scale_text = f"Scale: {int(self.image_grid_preview_scale*100)}%"
-        preview_scale_surf = self.font_sm.render(preview_scale_text, True, (220, 220, 220))
-        self._draw_bounded_text(preview_scale_surf, pygame.Rect(settings.BASE_PANEL_POS[0], 110, PANEL_WIDTH, 20))
+        self._draw_bounded_text(preview_scale_text, (220, 220, 220), pygame.Rect(settings.BASE_PANEL_POS[0], 110, PANEL_WIDTH, 20))
 
         # draw label for grid preview brightness adjustment
         preview_brightness_text = f"Brightness: {int(self.image_grid_brightness_scale*100)}%"
-        preview_brightness_surf = self.font_sm.render(preview_brightness_text, True, (220, 220, 220))
-        self._draw_bounded_text(preview_brightness_surf, pygame.Rect(settings.BASE_PANEL_POS[0], 230, PANEL_WIDTH, 20))
+        self._draw_bounded_text(preview_brightness_text, (220, 220, 220), pygame.Rect(settings.BASE_PANEL_POS[0], 230, PANEL_WIDTH, 20))
+
+    def _draw_panel_divider(self, y: int) -> None:
+        px = settings.BASE_PANEL_POS[0]
+        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, y), (px + PANEL_WIDTH - 10, y), 1)
 
     def _draw_main_panel(self) -> None:
         settings.BASE_PANEL_POS = (self.screen.get_width() - PANEL_WIDTH, 0)
@@ -381,7 +393,7 @@ class Life:
         self.screen.blit(self.font_sm.render("Generation", True, (160, 160, 160)), (px + 10, 15))
         self.screen.blit(self.font_lg.render(str(self.grid.generation), True, (220, 210, 70)), (px + 10, 40))
 
-        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 84), (px + PANEL_WIDTH - 10, 84), 1)
+        self._draw_panel_divider(84)
 
         # Grid size controls
         self.screen.blit(self.font_sm.render("Grid Size", True, (160, 160, 160)), (px + 10, 95))
@@ -394,26 +406,28 @@ class Life:
         self.screen.blit(self.font_sm.render(str(self._pending_height), True, settings.TXT_COL), (px + 83, 168))
 
         # grid type controls (bounded or toroidal)
-        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 260), (px + PANEL_WIDTH - 10, 260), 1)
+        self._draw_panel_divider(260)
         self.screen.blit(self.font_sm.render("Grid Type", True, (160, 160, 160)), (px + 10, 275))
 
         # Save and Load buttons
-        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 360), (px + PANEL_WIDTH - 10, 360), 1)
+        self._draw_panel_divider(360)
         self.screen.blit(self.font_sm.render("Save / Load Grid", True, (160, 160, 160)), (px + 10, 375))
 
         # image to grid button
-        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 445), (px + PANEL_WIDTH - 10, 445), 1)
+        self._draw_panel_divider(445)
         self.screen.blit(self.font_sm.render("Import from Image", True, (160, 160, 160)), (px + 10, 460))
 
         # draw help text at the bottom
         help_text = "Space: Play/Pause | R: Reset | L: Toggle Grid Lines"
-        help_surf = self.font_sm.render(help_text, True, (160, 160, 160))
-        self._draw_bounded_text(help_surf, pygame.Rect(settings.BASE_PANEL_POS[0]/2-PANEL_WIDTH, self.screen.get_height() - 25, settings.BASE_PANEL_POS[0], 20))
+        self._draw_bounded_text(help_text, (160, 160, 160), pygame.Rect(settings.BASE_PANEL_POS[0]/2-PANEL_WIDTH, self.screen.get_height() - 25, settings.BASE_PANEL_POS[0], 20))
         
-        pygame.draw.line(self.screen, (80, 80, 80), (px + 10, 525), (px + PANEL_WIDTH - 10, 525), 1)
+        self._draw_panel_divider(525)
         self._draw_slider()
 
     def draw_panel(self) -> None:
+        """
+        Draw the side panel, including the main panel or the image-to-grid panel based on the current state.
+        """
         pygame.draw.rect(self.screen, (45, 45, 45), pygame.Rect(settings.BASE_PANEL_POS[0], 0, PANEL_WIDTH, self.screen.get_height()))
         pygame.draw.line(self.screen, (90, 90, 90), (settings.BASE_PANEL_POS[0], 0), (settings.BASE_PANEL_POS[0], self.screen.get_height()), 2)
 
@@ -501,8 +515,18 @@ class Life:
             self.image, 
             self.image_grid_width, 
             self.image_grid_height, 
-            threshold=threshold
+            threshold=threshold,
+            invert=self._image_inverted
        )
+
+    def _invert_image(self) -> None:
+        self._image_inverted = not self._image_inverted
+        self.image_grid_values, self.bw_image_preview = image_to_grid(
+            self.image, 
+            self.image_grid_width, 
+            self.image_grid_height, 
+            invert=self._image_inverted
+        )
 
     def _sync_grid_type_buttons(self) -> None:
         bounded_button = self.buttons.get("bounded")
@@ -544,8 +568,9 @@ class Life:
                     if self.playing and self.grid.generation == 0:
                         self._flip_buttons_active_state()
                 elif event.key == pygame.K_r and not self.playing:
-                    self.grid.reset()
-                    self._flip_buttons_active_state()
+                    if self.grid.generation != 0:
+                        self._flip_buttons_active_state()
+                    self.grid.reset()   
                 elif event.key == pygame.K_l:
                     self._show_grid_lines = not self._show_grid_lines
             elif pygame.mouse.get_pressed()[0]:

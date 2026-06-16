@@ -9,8 +9,28 @@ from typing import List, Tuple
 import pygame
 
 
-def image_to_grid(img: pygame.Surface, width: int, height: int, threshold: int = 128, reverse_image: bool = False) -> Tuple[List[bool], pygame.Surface]:
-    
+def image_to_grid(
+        img: pygame.Surface, 
+        width: int, 
+        height: int, 
+        threshold: int = 128, 
+        invert: bool = False
+    ) -> Tuple[List[bool], pygame.Surface]:
+    """
+    Convert a pygame Surface image to a grid of boolean values representing alive and dead cells.
+
+    Args:
+        img (pygame.Surface): The original input image.
+        width (int): The width of the output grid.
+        height (int): The height of the output grid.
+        threshold (int, optional): The luminance threshold to determine alive/dead cells. Defaults to 128. 
+                                   Less than this value is considered dark (alive), greater is considered light (dead).
+        invert (bool, optional): If True, invert the alive/dead mapping. Defaults to False.
+
+    Returns:
+        Tuple[List[bool], pygame.Surface]: A tuple containing the grid of boolean values and the processed image.
+    """
+
     img = pygame.transform.scale(img, (width, height))
     bw = img.convert()  # ensure consistent pixel format
 
@@ -19,7 +39,7 @@ def image_to_grid(img: pygame.Surface, width: int, height: int, threshold: int =
         for x in range(width):
             r, g, b, *_ = bw.get_at((x, y))
             luminance = 0.299 * r + 0.587 * g + 0.114 * b
-            if reverse_image:
+            if invert:
                 result.append(luminance >= threshold)  # dark = False (dead), light = True (alive)
                 color = (0, 0, 0) if luminance >= threshold else (255, 255, 255)
             else:
@@ -32,6 +52,15 @@ def image_to_grid(img: pygame.Surface, width: int, height: int, threshold: int =
 
 
 def load_image(path: str) -> pygame.Surface:
+    """
+    Load an image from the specified file path as a pygame Surface.
+
+    Args:
+        path (str): The file path to the image.
+
+    Returns:
+        pygame.Surface: The loaded image as a pygame Surface.
+    """
     img = pygame.image.load(path)
     return img
 
