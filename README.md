@@ -1,6 +1,8 @@
 # game-of-life
 Conway's Game of Life made via pygame
 
+https://github.com/user-attachments/assets/072cb932-ad3b-44fe-a113-2d669bda016a
+
 ## Getting Started
 
 Install pygame or run `pip install -r requirements`
@@ -34,10 +36,10 @@ To launch the game, simply run `python main.py`
 ### Basic Key Commands:
 - **p**: starts/pauses the game
 - **l**: turns on and off the grind lines between cells
-- **r**: resets the grid to the intial starting point. Play must be paused.
+- **r**: resets the grid to the initial starting point. Play must be paused.
 
 ### Adjusting Grid:
-Adjust the width and height of the grid using the plus or minus buttons. Press apply size to apply (this will reset all cells). 
+Adjust the width and height of the grid using the plus or minus buttons. Press the apply size buton to apply (this will reset all cells). 
 
 Click on sets to 'flip' them from dead to alive and vice versa.
 
